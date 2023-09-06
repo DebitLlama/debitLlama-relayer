@@ -1,0 +1,16 @@
+{
+  "lock": false,
+  "tasks": {
+    "start": "deno run -A main.ts",
+    "test": "deno run -A tests/test.ts"
+  },
+  "imports": {
+    "$std/": "https://deno.land/std@0.193.0/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.21.0",
+    "$cron": "https://deno.land/x/deno_cron/cron.ts"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  }
+}
