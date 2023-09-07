@@ -7,6 +7,7 @@ export enum PaymentIntentStatus {
   RECURRING = "Recurring",
   PAID = "Paid",
   BALANCETOOLOWTORELAY = "Balance too low to relay",
+  ACCOUNTBALANCETOOLOW = "Account Balance too low",
 }
 
 export type Account = {
@@ -76,29 +77,53 @@ export async function selectPayeeRelayerBalance(
   );
 }
 
+//TODO: This function has a network switch! Implement it for other networks too!
 export async function updatePaymentIntentRelayingFailed(arg: {
+  chainId: ChainIds;
   supabaseClient: any;
   paymentIntent: string;
   relayerBalance: RelayerBalance;
   totalFee: bigint;
 }) {
   console.log("updatePaymentIntentRelayingFailed", arg);
+
   await arg.supabaseClient.from("PaymentIntents").update({
     statusText: PaymentIntentStatus.BALANCETOOLOWTORELAY,
   }).eq("paymentIntent", arg.paymentIntent);
 
-  const already_missing_amount = parseEther(
-    arg.relayerBalance.Missing_BTT_Donau_Testnet_Balance,
-  );
+  switch (arg.chainId) {
+    case ChainIds.BTT_TESTNET_ID: {
+      const already_missing_amount = parseEther(
+        arg.relayerBalance.Missing_BTT_Donau_Testnet_Balance,
+      );
 
-  const newMissingAmount = already_missing_amount + arg.totalFee;
-  console.log(newMissingAmount);
+      const newMissingAmount = already_missing_amount + arg.totalFee;
 
-  const res2 = await arg.supabaseClient.from("RelayerBalance").update({
-    Missing_BTT_Donau_Testnet_Balance: formatEther(newMissingAmount),
-  }).eq("id", arg.relayerBalance.id);
+      console.log(newMissingAmount);
 
-  console.log("updating relayer balance missing amount", res2);
+      const res2 = await arg.supabaseClient.from("RelayerBalance").update({
+        Missing_BTT_Donau_Testnet_Balance: formatEther(newMissingAmount),
+      }).eq("id", arg.relayerBalance.id);
+
+      console.log("updating relayer balance missing amount", res2);
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+export async function updatePaymentIntentBalanceTooLowFixedPayment(arg: {
+  chainId: ChainIds;
+  supabaseClient: any;
+  paymentIntentRow: PaymentIntentRow;
+}) {
+  // /?TODO: Could send an email after this to notify the user about account balance too low!
+  // Also notify the merchant! Maybe hit a webhook about it!
+  await arg.supabaseClient.from("PaymentIntents").update({
+    statusText: PaymentIntentStatus.ACCOUNTBALANCETOOLOW,
+  }).eq("id", arg.paymentIntentRow.id);
 }
 
 export async function updatePayeeRelayerBalanceSwitchNetwork(
@@ -130,23 +155,19 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
 
   const newBalance = parseEther(previousBalance) - parseEther(allGasUsed);
 
-  console.log(newBalance);
-
   switch (network) {
     // FOR BTT DONAU TESTNET!
     case ChainIds.BTT_TESTNET_ID: {
       // I update the Relayer balance
-      const updatedRelayerBalanceQuery = await supabaseClient.from(
+      await supabaseClient.from(
         "RelayerBalance",
       ).update({
         BTT_Donau_Testnet_Balance: formatEther(newBalance),
       }).eq("user_id", payee_user_id).select();
 
-      console.log("updatedRelayerBalanceQuery", updatedRelayerBalanceQuery);
-
       // Add the transaction to the relayer history
 
-      const relayerHistoryQuery = await supabaseClient.from("RelayerHistory")
+      await supabaseClient.from("RelayerHistory")
         .insert({
           created_at: new Date().toISOString(),
           payee_user_id: payee_user_id,
@@ -156,20 +177,16 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
           allGasUsed,
           network,
         });
-      console.log("relayerHistoryQuery", relayerHistoryQuery);
       // Update the account balance!
 
-      const updatedAccountBalanceQuery = await supabaseClient.from("Accounts")
+      await supabaseClient.from("Accounts")
         .update({
           balance: newAccountBalance,
+          last_modified: new Date().toISOString(),
         }).eq(
           "commitment",
           commitment,
         );
-
-      console.log("updatedAccountBalanceQuery", updatedAccountBalanceQuery);
-
-      //TODO: I should update the payment intent too on successful relaying!
 
       const used_for = paymentIntentRow.used_for + 1;
       const debitTimes = paymentIntentRow.debitTimes;
@@ -183,7 +200,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
         ? calculateDebitIntervalDays(paymentIntentRow.debitInterval)
         : paymentIntentRow.nextPaymentDate; // if it's paid then there is no need to update this
 
-      const updatePaymentIntentQuery = await supabaseClient.from(
+      await supabaseClient.from(
         "PaymentIntents",
       )
         .update({
@@ -192,7 +209,6 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
           nextPaymentDate,
           used_for,
         }).eq("id", paymentIntentRow.id);
-      console.log("updatepaymentintentquery", updatePaymentIntentQuery);
       break;
     }
     default:
@@ -201,7 +217,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
 }
 
 function calculateDebitIntervalDays(debitInterval: number) {
-  var currentDate = new Date();
+  const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + debitInterval);
   return currentDate.toLocaleString();
 }

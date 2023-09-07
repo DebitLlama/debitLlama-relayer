@@ -212,7 +212,9 @@ export interface TransactionGasCalculationsArgs {
 
 //Todo will need a rewrite to support EIP-1559
 export type TransactionGasCalulcationsResult = {
-  success: boolean;
+  relayerBalanceEnough: boolean;
+  accountBalanceEnough: boolean;
+  errored: boolean;
   gasLimit: bigint;
   gasPrice: bigint;
   totalFee: bigint;
@@ -246,18 +248,18 @@ export async function transactionGasCalculations(
       debitTimes: paymentIntentRow.debitTimes,
       debitInterval: paymentIntentRow.debitInterval,
     }, chainId);
-    console.log("estimatedGas", estimatedGas);
     const increasedGasLimit = increaseGasLimit(estimatedGas);
-    console.log("increasedGasLimit", increasedGasLimit);
     const feeData = await getGasPrice(chainId as ChainIds);
-    console.log("feeData", feeData);
     return {
-      success: checkIfRelayerBalanceIsEnough({
+      relayerBalanceEnough: checkIfRelayerBalanceIsEnough({
         chainId: chainId as ChainIds,
         feeData,
         increasedGasLimit,
         relayerBalance,
       }),
+      // Invalid account balance will cause the estimateGas to throw
+      // So if it gets here the accountBalance must be enough!
+      accountBalanceEnough: true,
       gasLimit: increasedGasLimit,
       gasPrice: feeData.gasPrice,
       totalFee: calculateFeePerChainId(
@@ -267,11 +269,18 @@ export async function transactionGasCalculations(
       ),
       maxFeePerGas: feeData.maxFeePerGas,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+      errored: false,
     };
   } catch (err) {
     console.log(err);
     return {
-      success: false,
+      relayerBalanceEnough: false,
+      // If the estimateGas threw an error. O check if the accountBalance is is the reason or not!
+      accountBalanceEnough: checkIfAccountBalanceIsEnough(
+        paymentIntentRow.account_id.balance,
+        paymentIntentRow.maxDebitAmount,
+      ),
+      errored: true, // Checking if the process threw an error somewhere
       gasPrice: BigInt(0),
       gasLimit: BigInt(0),
       totalFee: BigInt(0),
@@ -312,7 +321,17 @@ export function checkIfRelayerBalanceIsEnough(
   );
   console.log("estimatedFee", estimatedFee);
   console.log("formattedEstimatedFee", formatEther(estimatedFee));
-  return parseEther(currentRelayerBalance) > estimatedFee;
+  return parseEther(currentRelayerBalance) >= estimatedFee;
+}
+
+function checkIfAccountBalanceIsEnough(
+  accountBalance: string,
+  debitAmount: string,
+): boolean {
+  const accountBalanceWei = parseEther(accountBalance);
+  const debitAmountWei = parseEther(debitAmount);
+
+  return accountBalanceWei >= debitAmountWei;
 }
 
 /**

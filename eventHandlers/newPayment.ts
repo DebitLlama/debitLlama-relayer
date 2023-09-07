@@ -6,14 +6,12 @@ import {
   selectPayeeRelayerBalance,
   selectPaymentIntentByPaymentIntent,
   updatePayeeRelayerBalanceSwitchNetwork,
+  updatePaymentIntentBalanceTooLowFixedPayment,
   updatePaymentIntentRelayingFailed,
 } from "../db/queries.ts";
 import { ChainIds } from "../web3/constants..ts";
 import {
-  estimateRelayerGas,
-  getGasPrice,
   getRelayerBalanceForChainId,
-  increaseGasLimit,
   relayPayment,
   transactionGasCalculations,
 } from "../web3/web3.ts";
@@ -52,7 +50,6 @@ export async function newFixedPaymentHandler(
     );
 
   const paymentIntentRow = paymentIntentRowArray[0] as PaymentIntentRow;
-  console.log(paymentIntentRow);
 
   const chainId = paymentIntentRow.network as ChainIds;
 
@@ -74,32 +71,49 @@ export async function newFixedPaymentHandler(
     relayerBalance,
   });
 
-  console.log(gasCalculations);
 
   //If estimate gas was successful but the relayer don't have enough balance:
   if (
-    gasCalculations.success === false &&
-    gasCalculations.totalFee !== BigInt(0)
+    gasCalculations.relayerBalanceEnough === false &&
+    gasCalculations.errored === false
   ) {
     if (
       paymentIntentRow.statusText !== PaymentIntentStatus.BALANCETOOLOWTORELAY
     ) {
-      console.log(
-        "should update the database only if it was not done already!",
-      );
       await updatePaymentIntentRelayingFailed({
+        chainId,
         supabaseClient: client,
         paymentIntent,
         relayerBalance,
         totalFee: gasCalculations.totalFee,
       });
     }
+  }
 
+  // if estimate gas failed and the account don't have enough balance
+
+  if (
+    gasCalculations.errored === true &&
+    gasCalculations.accountBalanceEnough === false
+  ) {
+    // If the account don't have enough balance I update the status of the payment intent!
+    await updatePaymentIntentBalanceTooLowFixedPayment({
+      chainId,
+      supabaseClient: client,
+      paymentIntentRow,
+    });
+  }
+
+  if (
+    gasCalculations.relayerBalanceEnough === false ||
+    gasCalculations.errored === true
+  ) {
+    // if something went wrong return now
+    // Relayer balance is not enough or the estimateGas threw an error I abort the mission
     return;
   }
 
-  // Now I can relay the transaction since the relayer has enough balance
-
+  // Now I can relay the transaction since the relayer has enough balance and the tx succeeded!
   const tx = await relayPayment(
     {
       proof,
@@ -129,14 +143,11 @@ export async function newFixedPaymentHandler(
   );
 
   await tx.wait().then(async (receipt: any) => {
-    console.log("receipt", receipt);
     if (receipt.status === 1) {
       const fee = receipt.fee;
-      console.log("fee paid", formatEther(fee));
       const newAccountBalance =
         parseEther(paymentIntentRow.account_id.balance) -
         parseEther(paymentIntentRow.maxDebitAmount);
-      console.log("newAccountBalance", newAccountBalance);
       // update the database with the details of the relayed transaction
 
       await updatePayeeRelayerBalanceSwitchNetwork({
@@ -151,10 +162,8 @@ export async function newFixedPaymentHandler(
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
       });
-      console.log("Relaying end!");
       return;
     } else {
-      console.log("transaction failed!");
     }
   });
 }
