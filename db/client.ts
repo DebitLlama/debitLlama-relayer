@@ -19,7 +19,7 @@ export function initializeSupabase(
 
   channel.on(
     "broadcast",
-    { event: "dynamicPaymentHandler" },
+    { event: "processDynamicPayment" },
     (payload) => dynamicPaymentHandler(client, payload),
   );
 
