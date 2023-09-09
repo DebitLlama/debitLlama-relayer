@@ -1,61 +1,40 @@
 import { formatEther, parseEther } from "../ethers.min.js";
 import {
+  ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
   RelayerBalance,
-  selectPayeeRelayerBalance,
-  selectPaymentIntentByPaymentIntent,
-  updatePayeeRelayerBalanceSwitchNetwork,
-  updatePaymentIntentBalanceTooLowFixedPayment,
-  updatePaymentIntentRelayingFailed,
-} from "../db/queries.ts";
-import { ChainIds } from "../web3/constants..ts";
+} from "../web3/constants..ts";
 import {
   getRelayerBalanceForChainId,
   relayPayment,
   transactionGasCalculations,
 } from "../web3/web3.ts";
-
-// New Payment Handler is only
-
-interface Payload {
-  paymentIntent: string;
-}
-
-interface NewFixedPaymentEvent {
-  event: "newFixedPayment";
-  payload: {
-    paymentIntent: string;
-  };
-  type: "broadcast";
-}
+import {
+  updatePayeeRelayerBalanceSwitchNetwork,
+  updatePaymentIntentRelayingFailed,
+} from "../db/businessLogic.ts";
+import QueryBuilder from "../db/queryBuilder.ts";
 
 /**
  * Relay the direct debit transaction and save the details in the database!
  * @param client
- * @param event
+ * @paymentIntentRow
  * @returns void
  */
 
-export async function newFixedPaymentHandler(
-  client: any,
-  event: NewFixedPaymentEvent,
+export async function handleCreatedFixedPayments(
+  queryBuilder: QueryBuilder,
+  paymentIntentRow: PaymentIntentRow,
 ) {
-  const paymentIntent = event.payload.paymentIntent;
-  // Check the relayer balance for the payee
-  const { data: paymentIntentRowArray, error: paymentIntentRowError } =
-    await selectPaymentIntentByPaymentIntent(
-      client,
-      paymentIntent,
-    );
-
-  const paymentIntentRow = paymentIntentRowArray[0] as PaymentIntentRow;
-
+  console.log(
+    "Starting to handle a payment intent with created state and fixed pricing",
+  );
   const chainId = paymentIntentRow.network as ChainIds;
-
-  const { data: payeeRelayerBalanceArray, error: payeeRelayerBalanceError } =
-    await selectPayeeRelayerBalance(
-      client,
+  const select = queryBuilder.select();
+  const update = queryBuilder.update();
+  const { data: payeeRelayerBalanceArray } = await select.RelayerBalance
+    .byUserId(
       paymentIntentRow.payee_user_id,
     );
 
@@ -71,7 +50,6 @@ export async function newFixedPaymentHandler(
     relayerBalance,
   });
 
-
   //If estimate gas was successful but the relayer don't have enough balance:
   if (
     gasCalculations.relayerBalanceEnough === false &&
@@ -82,8 +60,8 @@ export async function newFixedPaymentHandler(
     ) {
       await updatePaymentIntentRelayingFailed({
         chainId,
-        supabaseClient: client,
-        paymentIntent,
+        queryBuilder: queryBuilder,
+        paymentIntent: paymentIntentRow.paymentIntent,
         relayerBalance,
         totalFee: gasCalculations.totalFee,
       });
@@ -97,11 +75,9 @@ export async function newFixedPaymentHandler(
     gasCalculations.accountBalanceEnough === false
   ) {
     // If the account don't have enough balance I update the status of the payment intent!
-    await updatePaymentIntentBalanceTooLowFixedPayment({
-      chainId,
-      supabaseClient: client,
-      paymentIntentRow,
-    });
+    await update.PaymentIntents.accountBalanceTooLowByPaymentIntentId(
+      paymentIntentRow.id,
+    );
   }
 
   if (
@@ -151,7 +127,7 @@ export async function newFixedPaymentHandler(
       // update the database with the details of the relayed transaction
 
       await updatePayeeRelayerBalanceSwitchNetwork({
-        supabaseClient: client,
+        queryBuilder,
         network: chainId,
         payee_user_id: paymentIntentRow.payee_user_id,
         previousBalance: currentRelayerBalance,
@@ -164,6 +140,8 @@ export async function newFixedPaymentHandler(
       });
       return;
     } else {
+      //TODO: Tx failed, SHould not occur as estiamteGas runs before,
+      //I don't change the database so nothing happens
     }
   });
 }

@@ -2,7 +2,7 @@
   "lock": false,
   "tasks": {
     "start": "deno run -A main.ts",
-    "test": "deno run -A tests/test.ts"
+    "test": "deno run -A tests/livetests.ts"
   },
   "imports": {
     "$std/": "https://deno.land/std@0.193.0/",

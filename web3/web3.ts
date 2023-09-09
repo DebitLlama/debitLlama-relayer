@@ -312,15 +312,12 @@ export function checkIfRelayerBalanceIsEnough(
     chainId,
     relayerBalance,
   );
-  console.log("current Relayer Balance", currentRelayerBalance);
 
   const estimatedFee = calculateFeePerChainId(
     chainId,
     feeData,
     increasedGasLimit,
   );
-  console.log("estimatedFee", estimatedFee);
-  console.log("formattedEstimatedFee", formatEther(estimatedFee));
   return parseEther(currentRelayerBalance) >= estimatedFee;
 }
 
@@ -363,7 +360,7 @@ export function getRelayerBalanceForChainId(
  * @returns the estimated fee associated with the transaction
  */
 
-function calculateFeePerChainId(
+export function calculateFeePerChainId(
   chainId: ChainIds,
   feeData: { gasPrice: any; maxFeePerGas: any; maxPriorityFeePerGas: any },
   increasedGasLimit: bigint,

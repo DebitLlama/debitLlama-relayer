@@ -1,52 +1,16 @@
-import { formatEther, parseEther } from "../ethers.min.js";
-import { ChainIds } from "../web3/constants..ts";
+import { formatEther } from "../ethers.min.js";
+import {
+  ChainIds,
+  DynamicPaymentRequestJobsStatus,
+  PaymentIntentRow,
+  PaymentIntentStatus,
+  Pricing,
+} from "../web3/constants..ts";
+import { getTimeToLockDynamicPaymentRequest } from "./businessLogic.ts";
 
-export enum PaymentIntentStatus {
-  CREATED = "Created",
-  CANCELLED = "Cancelled",
-  RECURRING = "Recurring",
-  PAID = "Paid",
-  BALANCETOOLOWTORELAY = "Balance too low to relay",
-  ACCOUNTBALANCETOOLOW = "Account Balance too low",
-}
 
-export type Account = {
-  id: number;
-  created_at: string;
-  user_id: string;
-  network_id: string;
-  commitment: string;
-  name: string;
-  closed: boolean;
-  currency: string;
-  balance: string;
-};
-
-export type PaymentIntentRow = {
-  id: number;
-  created_at: string;
-  creator_user_id: number;
-  payee_user_id: string;
-  account_id: Account;
-  payee_address: string;
-  maxDebitAmount: string;
-  debitTimes: number;
-  debitInterval: number;
-  paymentIntent: string;
-  commitment: string;
-  estimatedGas: string;
-  statusText: string;
-  lastPaymentDate: string | null;
-  nextPaymentDate: string | null;
-  pricing: string;
-  currency: string;
-  network: string;
-  debit_item_id: number;
-  used_for: number;
-  proof: string;
-  publicSignals: string;
-};
-
+// /?TODO: I REFACTOR HOW I ORGANIZE MY QUERIES BECAUSE THEY ARE GETTING OUT OF HAND!
+//$
 export async function selectPaymentIntentByPaymentIntent(
   supabaseClient: any,
   paymentIntent: string,
@@ -57,16 +21,17 @@ export async function selectPaymentIntentByPaymentIntent(
       paymentIntent,
     );
 }
+//$
+export async function selectPaymentIntentWhereStatusEqualsCreated(
+  supabaseClient: any,
+) {
+  return await supabaseClient
+    .from("PaymentIntents")
+    .select("*,account_id(*)")
+    .eq("statusText", PaymentIntentStatus.CREATED);
+}
 
-export type RelayerBalance = {
-  id: number;
-  created_at: string;
-  BTT_Donau_Testnet_Balance: string;
-  Missing_BTT_Donau_Testnet_Balance: string;
-  user_id: string;
-  last_topup: string;
-};
-
+//$
 export async function selectPayeeRelayerBalance(
   supabaseClient: any,
   payee_id: string,
@@ -76,44 +41,64 @@ export async function selectPayeeRelayerBalance(
     payee_id,
   );
 }
-
-//TODO: This function has a network switch! Implement it for other networks too!
-export async function updatePaymentIntentRelayingFailed(arg: {
-  chainId: ChainIds;
-  supabaseClient: any;
-  paymentIntent: string;
-  relayerBalance: RelayerBalance;
-  totalFee: bigint;
-}) {
-  console.log("updatePaymentIntentRelayingFailed", arg);
-
-  await arg.supabaseClient.from("PaymentIntents").update({
-    statusText: PaymentIntentStatus.BALANCETOOLOWTORELAY,
-  }).eq("paymentIntent", arg.paymentIntent);
-
-  switch (arg.chainId) {
-    case ChainIds.BTT_TESTNET_ID: {
-      const already_missing_amount = parseEther(
-        arg.relayerBalance.Missing_BTT_Donau_Testnet_Balance,
-      );
-
-      const newMissingAmount = already_missing_amount + arg.totalFee;
-
-      console.log(newMissingAmount);
-
-      const res2 = await arg.supabaseClient.from("RelayerBalance").update({
-        Missing_BTT_Donau_Testnet_Balance: formatEther(newMissingAmount),
-      }).eq("id", arg.relayerBalance.id);
-
-      console.log("updating relayer balance missing amount", res2);
-      break;
-    }
-
-    default:
-      break;
-  }
+//$
+export async function selectLockedDynamicPaymentRequestJobs(
+  supabaseClient: any,
+) {
+  return await supabaseClient.from("DynamicPaymentRequestJobs").select(
+    "*,paymentIntent_id(*,account_id(*),debit_item_id(*))",
+  ).eq("status", DynamicPaymentRequestJobsStatus.LOCKED);
 }
 
+//$
+export async function selectFixedPricedRecurringSubscriptionsWhereThePaymentDateIsDue(
+  supabaseClient: any,
+) {
+  // TODO: I need to filter for Recurring transactions!!
+  return await supabaseClient.from("PaymentIntents")
+    .select("*,account_id(*),debit_item_id(*)")
+    .eq("pricing", Pricing.Fixed)
+    .lt("nextPaymentDate", Date.now())
+    .eq("statusText", PaymentIntentStatus.RECURRING);
+}
+
+//TODO: I need to handle other payments where the account balance or the relayer balance was too low!
+//$
+export async function updateCreatedDynamicPaymentRequestJobsOlderThan1Hour(
+  supabaseClient: any,
+) {
+  // Update DynamicPaymentRequestJobs
+  // Where Status is Created
+  // and created_at is less than one hour ago
+  return await supabaseClient.from("DynamicPaymentRequestJobs")
+    .update({ status: DynamicPaymentRequestJobsStatus.LOCKED })
+    .eq("status", DynamicPaymentRequestJobsStatus.CREATED)
+    .lt("created_at", getTimeToLockDynamicPaymentRequest());
+}
+
+
+
+//$
+export async function updatePaymentIntentsBalanceTooLowToRelay(
+  supabaseClient: any,
+  paymentIntent: string,
+) {
+  return await supabaseClient.from("PaymentIntents").update({
+    statusText: PaymentIntentStatus.BALANCETOOLOWTORELAY,
+  }).eq("paymentIntent", paymentIntent);
+}
+
+//$
+export async function updateRelayerMissingBalanceForBTT_Donau_Testnet_Balance(
+  supabaseClient: any,
+  newMissingAmount: string,
+  relayerBalanceId: number,
+) {
+  return await supabaseClient.from("RelayerBalance").update({
+    Missing_BTT_Donau_Testnet_Balance: formatEther(newMissingAmount),
+  }).eq("id", relayerBalanceId);
+}
+//$
 export async function updatePaymentIntentBalanceTooLowFixedPayment(arg: {
   chainId: ChainIds;
   supabaseClient: any;
@@ -125,99 +110,70 @@ export async function updatePaymentIntentBalanceTooLowFixedPayment(arg: {
     statusText: PaymentIntentStatus.ACCOUNTBALANCETOOLOW,
   }).eq("id", arg.paymentIntentRow.id);
 }
-
-export async function updatePayeeRelayerBalanceSwitchNetwork(
-  arg: {
-    supabaseClient: any;
-    network: ChainIds;
-    payee_user_id: string;
-    previousBalance: string;
-    allGasUsed: string;
-    paymentIntentRow: PaymentIntentRow;
-    relayerBalance_id: number;
-    submittedTransaction: string;
-    commitment: string;
-    newAccountBalance: string;
-  },
+//$
+export async function updateRelayerBalanceBTT_Donau_TestnetBalanceByUserId(
+  supabaseClient: any,
+  newBalance: any,
+  payee_user_id: string,
 ) {
-  const {
-    supabaseClient,
-    network,
-    payee_user_id,
-    previousBalance,
-    allGasUsed,
-    paymentIntentRow,
-    relayerBalance_id,
-    submittedTransaction,
-    commitment,
-    newAccountBalance,
-  } = arg;
-
-  const newBalance = parseEther(previousBalance) - parseEther(allGasUsed);
-
-  switch (network) {
-    // FOR BTT DONAU TESTNET!
-    case ChainIds.BTT_TESTNET_ID: {
-      // I update the Relayer balance
-      await supabaseClient.from(
-        "RelayerBalance",
-      ).update({
-        BTT_Donau_Testnet_Balance: formatEther(newBalance),
-      }).eq("user_id", payee_user_id).select();
-
-      // Add the transaction to the relayer history
-
-      await supabaseClient.from("RelayerHistory")
-        .insert({
-          created_at: new Date().toISOString(),
-          payee_user_id: payee_user_id,
-          paymentIntent_id: paymentIntentRow.id,
-          relayerBalance_id,
-          submittedTransaction,
-          allGasUsed,
-          network,
-        });
-      // Update the account balance!
-
-      await supabaseClient.from("Accounts")
-        .update({
-          balance: newAccountBalance,
-          last_modified: new Date().toISOString(),
-        }).eq(
-          "commitment",
-          commitment,
-        );
-
-      const used_for = paymentIntentRow.used_for + 1;
-      const debitTimes = paymentIntentRow.debitTimes;
-      const statusText = used_for - debitTimes === 0
-        ? PaymentIntentStatus.PAID
-        : PaymentIntentStatus.RECURRING;
-
-      const lastPaymentDate = new Date().toISOString();
-
-      const nextPaymentDate = statusText === PaymentIntentStatus.RECURRING
-        ? calculateDebitIntervalDays(paymentIntentRow.debitInterval)
-        : paymentIntentRow.nextPaymentDate; // if it's paid then there is no need to update this
-
-      await supabaseClient.from(
-        "PaymentIntents",
-      )
-        .update({
-          statusText,
-          lastPaymentDate,
-          nextPaymentDate,
-          used_for,
-        }).eq("id", paymentIntentRow.id);
-      break;
-    }
-    default:
-      break;
-  }
+  return await supabaseClient.from(
+    "RelayerBalance",
+  ).update({
+    BTT_Donau_Testnet_Balance: formatEther(newBalance),
+  }).eq("user_id", payee_user_id).select();
 }
-
-function calculateDebitIntervalDays(debitInterval: number) {
-  const currentDate = new Date();
-  currentDate.setDate(currentDate.getDate() + debitInterval);
-  return currentDate.toLocaleString();
+//$
+export async function insertRelayerHistoryTx(
+  supabaseClient: any,
+  payee_user_id: string,
+  paymentIntentId: number,
+  relayerBalanceId: number,
+  submittedTransaction: string,
+  allGasUsed: string,
+  network: string,
+) {
+  return await supabaseClient.from("RelayerHistory")
+    .insert({
+      created_at: new Date().toISOString(),
+      payee_user_id: payee_user_id,
+      paymentIntent_id: paymentIntentId,
+      relayerBalance_id: relayerBalanceId,
+      submittedTransaction,
+      allGasUsed,
+      network,
+    });
+}
+//$
+export async function updateAccountBalanceByCommitment(
+  supabaseClient: any,
+  newAccountBalance: string,
+  commitment: string,
+) {
+  return await supabaseClient.from("Accounts")
+    .update({
+      balance: newAccountBalance,
+      last_modified: new Date().toISOString(),
+    }).eq(
+      "commitment",
+      commitment,
+    );
+}
+//$
+export async function updatePaymentIntentStatusAndDates(
+  supabaseClient: any,
+  statusText: string,
+  lastPaymentDate: string,
+  nextPaymentDate: string | null,
+  used_for: number,
+  paymentIntentRowId: number,
+) {
+  return await supabaseClient.from(
+    "PaymentIntents",
+  )
+    .update({
+      statusText,
+      lastPaymentDate,
+      nextPaymentDate,
+      used_for,
+    }).eq("id", paymentIntentRowId);
 }

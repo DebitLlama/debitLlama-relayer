@@ -1,27 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
+import QueryBuilder from "./queryBuilder.ts";
 
-export function initializeSupabase(
-  newFixedPaymentHandler: CallableFunction,
-  dynamicPaymentHandler: CallableFunction,
-) {
+export function initializeSupabase():QueryBuilder {
   const client = createClient(
     Deno.env.get("SUPABASE_URL") || "",
     Deno.env.get("SUPABASE_KEY") || "",
     { auth: { persistSession: false } },
   );
+  const queryBuilder = new QueryBuilder(client);
 
-  const channel = client.channel("relayer_1");
-  channel.on(
-    "broadcast",
-    { event: "newFixedPayment" },
-    (payload) => newFixedPaymentHandler(client, payload),
-  ).subscribe();
-
-  channel.on(
-    "broadcast",
-    { event: "processDynamicPayment" },
-    (payload) => dynamicPaymentHandler(client, payload),
-  );
-
-  return { client, channel };
+  return queryBuilder;
 }
