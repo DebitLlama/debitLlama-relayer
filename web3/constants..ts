@@ -89,3 +89,16 @@ export type RelayerBalance = {
   user_id: string;
   last_topup: string;
 };
+
+export type DynamicPaymentRequestJobRow = {
+id: number;
+created_at: string;
+paymentIntent_id: PaymentIntentRow;
+requestedAmount: string;
+status: string;
+request_creator_id: string;
+allocatedGas: string;
+relayerBalance_id: number
+
+
+}
