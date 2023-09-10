@@ -1,17 +1,86 @@
+import QueryBuilder from "../db/queryBuilder.ts";
 import { parseEther } from "../ethers.min.js";
+import { handleCreatedFixedPayments } from "../handlers/handleCreatedFixedPayments.ts";
 import {
   ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
   RelayerBalance,
 } from "../web3/constants..ts";
-import {
-  insertRelayerHistoryTx,
-  updateAccountBalanceByCommitment,
-  updatePaymentIntentStatusAndDates,
-  updateRelayerBalanceBTT_Donau_TestnetBalanceByUserId,
-} from "./queries.ts";
-import QueryBuilder from "./queryBuilder.ts";
+import { processJobs } from "../scheduler/process.ts";
+import { handleLockedDynamicPayments } from "../handlers/handleLockedDynamicPayments.ts";
+
+/**
+ * This will handle the created fixed payments
+ * @param queryBuilder
+ * @returns
+ */
+export async function processCreatedFixedPayments(queryBuilder: QueryBuilder) {
+  const select = queryBuilder.select();
+
+  const { data: jobs } = await select.PaymentIntents.whereStatusIsCreated();
+
+  if (jobs === null || jobs.length === 0) {
+    return;
+  }
+
+  await processJobs(
+    jobs,
+    queryBuilder,
+    handleCreatedFixedPayments,
+  );
+}
+
+export async function processRecurringFixedPricedSubscriptions(
+  queryBuilder: QueryBuilder,
+) {
+  const select = queryBuilder.select();
+  // I need to select the fixed priced payments where the status is recurring and the next payment date is in the past!
+  const { data: jobs } = await select.PaymentIntents
+    .byRecurringTransactionsWherePaymentIsDue();
+  if (jobs === null || jobs.length === 0) {
+    return;
+  }
+  // I process the recurring fixed priced subscriptions like I processed the created fixed payments
+  await processJobs(jobs, queryBuilder, handleCreatedFixedPayments);
+}
+
+export function getTimeToLockDynamicPaymentRequest() {
+  const env = Deno.env.get("ENVIRONMENT") || "development";
+  //For dev I don't enforce a long time
+  if (env === "development") {
+    return new Date().toISOString();
+  } else {
+    const HOUR = 1000 * 60 * 60;
+    const anHourAgo = Date.now() - HOUR;
+    return new Date(anHourAgo).toISOString();
+  }
+}
+
+/**
+ * This process will update the created dynamic requests to locked so I can process them
+ * @param queryBuilder
+ */
+
+export async function lockDynamicRequests(queryBuilder: QueryBuilder) {
+  console.log("lopcking dynamic requests!");
+  const update = queryBuilder.update();
+  const res = await update.DynamicPaymentRequestJobs
+    .whereCreatedOlderThan1Hour(getTimeToLockDynamicPaymentRequest());
+  console.log(res);
+}
+
+export async function processLockedDynamicRequests(queryBuilder: QueryBuilder) {
+  const select = queryBuilder.select();
+  const {
+    data: selectedJobs,
+  } = await select.DynamicPaymentRequestJobs.whereStatusIsLocked();
+  if (selectedJobs == null || selectedJobs.length === 0) {
+    return;
+  }
+  //Now I need to relay the payment and do like the fixed payment but use the dynamic amount that was added!
+  await processJobs(selectedJobs, queryBuilder, handleLockedDynamicPayments);
+}
 
 export async function updatePaymentIntentRelayingFailed(arg: {
   chainId: ChainIds;
@@ -50,7 +119,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
     queryBuilder: QueryBuilder;
     network: ChainIds;
     payee_user_id: string;
-    previousBalance: string;
+    newRelayerBalance: string;
     allGasUsed: string;
     paymentIntentRow: PaymentIntentRow;
     relayerBalance_id: number;
@@ -63,7 +132,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
     queryBuilder,
     network,
     payee_user_id,
-    previousBalance,
+    newRelayerBalance,
     allGasUsed,
     paymentIntentRow,
     relayerBalance_id,
@@ -72,16 +141,16 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
     newAccountBalance,
   } = arg;
 
-  const newBalance: any = parseEther(previousBalance) - parseEther(allGasUsed);
   const update = queryBuilder.update();
   const insert = queryBuilder.insert();
+
   switch (network) {
     // FOR BTT DONAU TESTNET!
     case ChainIds.BTT_TESTNET_ID: {
       // I update the Relayer balance
 
       await update.RelayerBalance.Btt_donau_Testnet_balanceByUserId(
-        newBalance,
+        newRelayerBalance,
         payee_user_id,
       );
 
@@ -133,16 +202,4 @@ function calculateDebitIntervalDays(debitInterval: number) {
   const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + debitInterval);
   return currentDate.toLocaleString();
-}
-
-export function getTimeToLockDynamicPaymentRequest() {
-  const env = Deno.env.get("ENVIRONMENT") || "development";
-  //For dev I don't enforce a long time
-  if (env === "development") {
-    return Date.now();
-  } else {
-    const HOUR = 1000 * 60 * 60;
-    const anHourAgo = Date.now() - HOUR;
-    return anHourAgo;
-  }
 }

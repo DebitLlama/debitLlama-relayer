@@ -4,8 +4,6 @@ import {
   PaymentIntentStatus,
   Pricing,
 } from "../web3/constants..ts";
-import { getTimeToLockDynamicPaymentRequest } from "./businessLogic.ts";
-
 export type SupabaseQueryResult = {
   error: any;
   data: any;
@@ -129,6 +127,16 @@ export default class QueryBuilder {
 
           return this.responseHandler(res);
         },
+        accountBalanceTooLowForDynamicPaymentByPaymentIntentId: async (
+          paymentIntentId: number,
+          missingAmount: string,
+        ) => {
+          const res = await this.client.from("PaymentIntents").update({
+            statusText: PaymentIntentStatus.ACCOUNTBALANCETOOLOW,
+            failedDynamicPaymentAmount: missingAmount,
+          }).eq("id", paymentIntentId);
+          return this.responseHandler(res);
+        },
         //updatePaymentIntentStatusAndDates
         statusAndDatesAfterSuccess: async (
           statusText: string,
@@ -152,12 +160,35 @@ export default class QueryBuilder {
 
       DynamicPaymentRequestJobs: {
         //updateCreatedDynamicPaymentRequestJobsOlderThan1Hour
-        whereCreatedOlderThan1Hour: async () => {
+        whereCreatedOlderThan1Hour: async (
+          timeToLockDynamicPaymentRequest: string,
+        ) => {
           const res = await this.client.from("DynamicPaymentRequestJobs")
             .update({ status: DynamicPaymentRequestJobsStatus.LOCKED })
             .eq("status", DynamicPaymentRequestJobsStatus.CREATED)
-            .lt("created_at", getTimeToLockDynamicPaymentRequest());
+            .lt("created_at", timeToLockDynamicPaymentRequest);
 
+          return this.responseHandler(res);
+        },
+        unlockById: async (dynamicPaymentRequestId: number) => {
+          const res = await this.client.from("DynamicPaymentRequestJobs")
+            .update({ status: DynamicPaymentRequestJobsStatus.CREATED })
+            .eq("status", DynamicPaymentRequestJobsStatus.LOCKED)
+            .eq("id", dynamicPaymentRequestId);
+
+          return this.responseHandler(res);
+        },
+        statusToRejectedById: async (paymentRequest_id: number) => {
+          const res = await this.client.from("DynamicPaymentRequestJobs")
+            .update({ status: DynamicPaymentRequestJobsStatus.REJECETED })
+            .eq("id", paymentRequest_id);
+
+          return this.responseHandler(res);
+        },
+        statusToCompletedById: async (paymentRequest_id: number) => {
+          const res = await this.client.from("DynamicPaymentRequestJobs")
+            .update({ status: DynamicPaymentRequestJobsStatus.COMPLETED })
+            .eq("id", paymentRequest_id);
           return this.responseHandler(res);
         },
       },

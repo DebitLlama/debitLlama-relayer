@@ -6,8 +6,7 @@ import {
   PaymentIntentStatus,
   Pricing,
 } from "../web3/constants..ts";
-import { getTimeToLockDynamicPaymentRequest } from "./businessLogic.ts";
-
+import { getTimeToLockDynamicPaymentRequest } from "../businessLogic/actions.ts";
 
 // /?TODO: I REFACTOR HOW I ORGANIZE MY QUERIES BECAUSE THEY ARE GETTING OUT OF HAND!
 //$
@@ -75,8 +74,6 @@ export async function updateCreatedDynamicPaymentRequestJobsOlderThan1Hour(
     .eq("status", DynamicPaymentRequestJobsStatus.CREATED)
     .lt("created_at", getTimeToLockDynamicPaymentRequest());
 }
-
-
 
 //$
 export async function updatePaymentIntentsBalanceTooLowToRelay(
