@@ -4,12 +4,21 @@ import {
   processCreatedFixedPayments,
   processLockedDynamicRequests,
   processRecurringFixedPricedSubscriptions,
-} from "./actions.ts";
+} from "../businessLogic/actions.ts";
 import QueryBuilder from "../db/queryBuilder.ts";
 
-export function every30MinProcessCreatedFixPayments(queryBuilder: QueryBuilder) {
+export function every30MinProcessCreatedFixPayments(
+  queryBuilder: QueryBuilder,
+) {
   cron("*/30 * * * *", async () => {
     await processCreatedFixedPayments(queryBuilder);
+  });
+}
+export function every2HoursProcessRecurringFixedPricedSubscriptions(
+  queryBuilder: QueryBuilder,
+) {
+  cron("0 */2 * * *", async () => {
+    await processRecurringFixedPricedSubscriptions(queryBuilder);
   });
 }
 
@@ -19,16 +28,10 @@ export function every30MinLockDynamicRequests(queryBuilder: QueryBuilder) {
   });
 }
 
-export function every30MinProcessLockedDynamicRequests(queryBuilder: QueryBuilder) {
-  cron("*/30 * * * *", async () => {
-    await processLockedDynamicRequests(queryBuilder);
-  });
-}
-
-export function every2HoursProcessRecurringFixedPricedSubscriptions(
+export function every30MinProcessLockedDynamicRequests(
   queryBuilder: QueryBuilder,
 ) {
-  cron("0 */2 * * *", async () => {
-    await processRecurringFixedPricedSubscriptions(queryBuilder);
+  cron("*/30 * * * *", async () => {
+    await processLockedDynamicRequests(queryBuilder);
   });
 }
