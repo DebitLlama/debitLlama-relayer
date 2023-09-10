@@ -8,17 +8,17 @@ import {
 import {
   getRelayerBalanceForChainId,
   relayPayment,
-  transactionGasCalculations,
+  transactionGasCalculationsForFixedPayments,
 } from "../web3/web3.ts";
 import {
   updatePayeeRelayerBalanceSwitchNetwork,
   updatePaymentIntentRelayingFailed,
-} from "../db/businessLogic.ts";
+} from "../businessLogic/actions.ts";
 import QueryBuilder from "../db/queryBuilder.ts";
 
 /**
  * Relay the direct debit transaction and save the details in the database!
- * @param client
+ * @param queryBuilder
  * @paymentIntentRow
  * @returns void
  */
@@ -42,7 +42,7 @@ export async function handleCreatedFixedPayments(
   const proof = paymentIntentRow.proof;
   const publicSignals = paymentIntentRow.publicSignals;
 
-  const gasCalculations = await transactionGasCalculations({
+  const gasCalculations = await transactionGasCalculationsForFixedPayments({
     proof,
     publicSignals,
     paymentIntentRow,
@@ -125,12 +125,13 @@ export async function handleCreatedFixedPayments(
         parseEther(paymentIntentRow.account_id.balance) -
         parseEther(paymentIntentRow.maxDebitAmount);
       // update the database with the details of the relayed transaction
+      const newRelayerBalance: any = parseEther(currentRelayerBalance) - fee;
 
       await updatePayeeRelayerBalanceSwitchNetwork({
         queryBuilder,
         network: chainId,
         payee_user_id: paymentIntentRow.payee_user_id,
-        previousBalance: currentRelayerBalance,
+        newRelayerBalance,
         allGasUsed: formatEther(fee),
         paymentIntentRow: paymentIntentRow,
         relayerBalance_id: relayerBalance.id,
