@@ -1,14 +1,15 @@
-import { ethers, formatEther, parseEther } from "../ethers.min.js";
+import { ethers, parseEther } from "../ethers.min.js";
 import {
   ChainIds,
   getDirectDebitContractAddress,
+  PaymentIntentRow,
+  RelayerBalance,
   rpcUrl,
 } from "./constants..ts";
 import DirectDebitArtifact from "../artifacts/DirectDebit.json" assert {
   type: "json",
 };
 import { Buffer } from "https://deno.land/x/node_buffer@1.1.0/mod.ts";
-import { PaymentIntentRow, RelayerBalance } from "../db/queries.ts";
 
 /**
  * Get the json rpc provider for the network
@@ -202,12 +203,20 @@ export const increaseGasLimit = (estimatedGasLimit: bigint) => {
   return (estimatedGasLimit * BigInt(130)) / BigInt(100); // increase by 30%
 };
 
-export interface TransactionGasCalculationsArgs {
+export interface TransactionGasCalculationsArgsForFixed {
   proof: string;
   publicSignals: string;
   paymentIntentRow: PaymentIntentRow;
   chainId: string | ChainIds;
   relayerBalance: RelayerBalance;
+}
+export interface TransactionGasCalculationsArgsForDynamic {
+  proof: string;
+  publicSignals: string;
+  paymentIntentRow: PaymentIntentRow;
+  chainId: ChainIds;
+  allocatedGas: string;
+  dynamicPaymentAmount: string;
 }
 
 //Todo will need a rewrite to support EIP-1559
@@ -222,20 +231,20 @@ export type TransactionGasCalulcationsResult = {
   maxPriorityFeePerGas: any;
 };
 
-/** estimate gas for the transaction and calculate if the relayer can relay it
+/** estimate gas for the transaction and calculate if the relayer can relay it for FIXED PAYMENTS!
  *
  * @param TransactionGasCalculationsArgs
  * @returns true if the relayer can submit the transaciton!
  */
 
-export async function transactionGasCalculations(
+export async function transactionGasCalculationsForFixedPayments(
   {
     proof,
     publicSignals,
     paymentIntentRow,
     chainId,
     relayerBalance,
-  }: TransactionGasCalculationsArgs,
+  }: TransactionGasCalculationsArgsForFixed,
 ): Promise<TransactionGasCalulcationsResult> {
   try {
     //Gonna Estimate Gas for the transaction, this will also check if it's valid!
@@ -371,4 +380,87 @@ export function calculateFeePerChainId(
     default:
       return BigInt(0);
   }
+}
+
+/**
+ * Transaction gas calculations for DYNAMIC PAYMENTS
+ */
+export async function transactionGasCalculationsForDynamicPayments({
+  proof,
+  publicSignals,
+  paymentIntentRow,
+  chainId,
+  allocatedGas,
+  dynamicPaymentAmount,
+}: TransactionGasCalculationsArgsForDynamic) {
+  try {
+    //Gonna Estimate Gas for the transaction, this will also check if it's valid!
+    const estimatedGas = await estimateRelayerGas({
+      proof,
+      publicSignals,
+      payeeAddress: paymentIntentRow.payee_address,
+      maxDebitAmount: paymentIntentRow.maxDebitAmount,
+      actualDebitedAmount: paymentIntentRow.maxDebitAmount,
+      debitTimes: paymentIntentRow.debitTimes,
+      debitInterval: paymentIntentRow.debitInterval,
+    }, chainId);
+    const increasedGasLimit = increaseGasLimit(estimatedGas);
+    const feeData = await getGasPrice(chainId as ChainIds);
+
+    return {
+      allocatedGasEnough: checkIfAllocatedGasIsEnough({
+        chainId,
+        feeData,
+        increasedGasLimit,
+        allocatedGas,
+      }),
+      // Invalid account balance will cause the estimateGas to throw
+      // So if it gets here the accountBalance must be enough!
+      accountBalanceEnough: true,
+      gasLimit: increasedGasLimit,
+      gasPrice: feeData.gasPrice,
+      totalFee: calculateFeePerChainId(
+        chainId as ChainIds,
+        feeData,
+        increasedGasLimit,
+      ),
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+      errored: false,
+    };
+  } catch (err) {
+    console.log(err);
+    return {
+      allocatedBalanceEnough: false,
+      accountBalanceEnough: checkIfAccountBalanceIsEnough(
+        paymentIntentRow.account_id.balance,
+        dynamicPaymentAmount,
+      ),
+      errored: true, // Checking if the process threw an error somewhere
+      gasPrice: BigInt(0),
+      gasLimit: BigInt(0),
+      totalFee: BigInt(0),
+      maxFeePerGas: BigInt(0),
+      maxPriorityFeePerGas: BigInt(0),
+    };
+  }
+}
+
+type CheckIfAllocatedGasIsEnough = {
+  chainId: ChainIds;
+  feeData: { gasPrice: any; maxFeePerGas: any; maxPriorityFeePerGas: any };
+  increasedGasLimit: bigint;
+  allocatedGas: string;
+};
+
+export function checkIfAllocatedGasIsEnough(
+  { chainId, feeData, increasedGasLimit, allocatedGas }:
+    CheckIfAllocatedGasIsEnough,
+) {
+  const estimatedFee = calculateFeePerChainId(
+    chainId,
+    feeData,
+    increasedGasLimit,
+  );
+  return parseEther(allocatedGas) >= estimatedFee;
 }
