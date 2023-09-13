@@ -1,5 +1,4 @@
 import QueryBuilder from "../db/queryBuilder.ts";
-import { parseEther } from "../ethers.min.js";
 import { handleCreatedFixedPayments } from "../handlers/handleCreatedFixedPayments.ts";
 import {
   ChainIds,
@@ -9,6 +8,7 @@ import {
 } from "../web3/constants..ts";
 import { processJobs } from "../scheduler/process.ts";
 import { handleLockedDynamicPayments } from "../handlers/handleLockedDynamicPayments.ts";
+import { parseEther } from "../web3/web3.ts";
 
 /**
  * This will handle the created fixed payments
@@ -18,7 +18,8 @@ import { handleLockedDynamicPayments } from "../handlers/handleLockedDynamicPaym
 export async function processCreatedFixedPayments(queryBuilder: QueryBuilder) {
   const select = queryBuilder.select();
 
-  const { data: jobs } = await select.PaymentIntents.whereStatusIsCreated();
+  const { data: jobs } = await select.PaymentIntents
+    .fixedPricingWhereStatusIsCreated();
 
   if (jobs === null || jobs.length === 0) {
     return;
@@ -63,7 +64,6 @@ export function getTimeToLockDynamicPaymentRequest() {
  */
 
 export async function lockDynamicRequests(queryBuilder: QueryBuilder) {
-  console.log("lopcking dynamic requests!");
   const update = queryBuilder.update();
   const res = await update.DynamicPaymentRequestJobs
     .whereCreatedOlderThan1Hour(getTimeToLockDynamicPaymentRequest());
@@ -126,6 +126,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
     submittedTransaction: string;
     commitment: string;
     newAccountBalance: string;
+    paymentAmount: string;
   },
 ) {
   const {
@@ -162,6 +163,8 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
         submittedTransaction,
         allGasUsed,
         network,
+        arg.paymentAmount,
+        JSON.parse(paymentIntentRow.currency),
       );
 
       // Update the account balance!
@@ -197,9 +200,8 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
   }
 }
 
-//This is business logic!
 function calculateDebitIntervalDays(debitInterval: number) {
   const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + debitInterval);
-  return currentDate.toLocaleString();
+  return currentDate.toISOString();
 }

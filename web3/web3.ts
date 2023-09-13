@@ -1,12 +1,12 @@
-import { ethers, parseEther } from "../ethers.min.js";
+import { ethers } from "../ethers.min.js";
 import {
   ChainIds,
-  getDirectDebitContractAddress,
+  getVirtualAccountsContractAddress,
   PaymentIntentRow,
   RelayerBalance,
   rpcUrl,
 } from "./constants..ts";
-import DirectDebitArtifact from "../artifacts/DirectDebit.json" assert {
+import VirtualAccountsArtifact from "../artifacts/VirtualAccounts.json" assert {
   type: "json",
 };
 import { Buffer } from "https://deno.land/x/node_buffer@1.1.0/mod.ts";
@@ -33,6 +33,13 @@ export function getSecretKey() {
 }
 
 /**
+ * Concat to string inside parseEther to avoid typeerrors with values coming from the database
+ */
+export function parseEther(input: string) {
+  return ethers.parseEther(`${input}`);
+}
+
+/**
  * Upgrades the provider to wallet that can sign transactions
  * @param provider
  * @returns Wallet
@@ -52,11 +59,11 @@ export function getWallet(provider: any) {
 
 // I need to implement the server side Contract functions here with ethers js
 export function getContract(provider: any, networkId: string) {
-  const address = getDirectDebitContractAddress[networkId as ChainIds];
+  const address = getVirtualAccountsContractAddress[networkId as ChainIds];
 
   return new ethers.Contract(
     address,
-    DirectDebitArtifact.abi,
+    VirtualAccountsArtifact.abi,
     provider,
   );
 }
@@ -122,10 +129,10 @@ export async function estimateRelayerGas(
     ],
     args.payeeAddress,
     [
-      ethers.parseEther(args.maxDebitAmount),
+      parseEther(args.maxDebitAmount),
       args.debitTimes,
       args.debitInterval,
-      ethers.parseEther(args.actualDebitedAmount),
+      parseEther(args.actualDebitedAmount),
     ],
   );
 }
@@ -162,10 +169,10 @@ export async function relayPayment(
     ],
     args.payeeAddress,
     [
-      ethers.parseEther(args.maxDebitAmount),
+      parseEther(args.maxDebitAmount),
       args.debitTimes,
       args.debitInterval,
-      ethers.parseEther(args.actualDebitedAmount),
+      parseEther(args.actualDebitedAmount),
     ],
     { gasLimit, gasPrice },
   );
@@ -400,13 +407,12 @@ export async function transactionGasCalculationsForDynamicPayments({
       publicSignals,
       payeeAddress: paymentIntentRow.payee_address,
       maxDebitAmount: paymentIntentRow.maxDebitAmount,
-      actualDebitedAmount: paymentIntentRow.maxDebitAmount,
+      actualDebitedAmount: dynamicPaymentAmount,
       debitTimes: paymentIntentRow.debitTimes,
       debitInterval: paymentIntentRow.debitInterval,
     }, chainId);
     const increasedGasLimit = increaseGasLimit(estimatedGas);
     const feeData = await getGasPrice(chainId as ChainIds);
-
     return {
       allocatedGasEnough: checkIfAllocatedGasIsEnough({
         chainId,

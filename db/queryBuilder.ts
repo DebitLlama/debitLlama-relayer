@@ -34,10 +34,12 @@ export default class QueryBuilder {
           return this.responseHandler(res);
         },
         //selectPaymentIntentWhereStatusEqualsCreated
-        whereStatusIsCreated: async () => {
+        fixedPricingWhereStatusIsCreated: async () => {
           const res = await this.client.from("PaymentIntents")
             .select("*,account_id(*)")
-            .eq("statusText", PaymentIntentStatus.CREATED);
+            .eq("statusText", PaymentIntentStatus.CREATED)
+            .eq("pricing",Pricing.Fixed)
+            ;
 
           return this.responseHandler(res);
         },
@@ -55,7 +57,7 @@ export default class QueryBuilder {
       RelayerBalance: {
         //selectPayeeRelayerBalance
         byUserId: async (payee_id: string) => {
-          const res = await this.client.from("PaymentIntents")
+          const res = await this.client.from("RelayerBalance")
             .select().eq(
               "user_id",
               payee_id,
@@ -68,7 +70,7 @@ export default class QueryBuilder {
         whereStatusIsLocked: async () => {
           const res = await this.client.from("DynamicPaymentRequestJobs")
             .select(
-              "*,paymentIntent_id(*,account_id(*),debit_item_id(*))",
+              "*,paymentIntent_id(*,account_id(*),debit_item_id(*),relayerBalance_id(*))",
             ).eq("status", DynamicPaymentRequestJobsStatus.LOCKED);
           return this.responseHandler(res);
         },
@@ -87,6 +89,8 @@ export default class QueryBuilder {
           submittedTransaction: string,
           allGasUsed: string,
           network: string,
+          paymentAmount: string,
+          paymentCurrency: string
         ) => {
           const res = await this.client.from("RelayerHistory")
             .insert({
@@ -97,6 +101,8 @@ export default class QueryBuilder {
               submittedTransaction,
               allGasUsed,
               network,
+              paymentAmount,
+              paymentCurrency,
             });
 
           return this.responseHandler(res);

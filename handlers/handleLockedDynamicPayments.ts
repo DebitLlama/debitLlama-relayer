@@ -1,9 +1,10 @@
 import { updatePayeeRelayerBalanceSwitchNetwork } from "../businessLogic/actions.ts";
 import QueryBuilder from "../db/queryBuilder.ts";
-import { formatEther, parseEther } from "../ethers.min.js";
+import { formatEther } from "../ethers.min.js";
 import { ChainIds, DynamicPaymentRequestJobRow } from "../web3/constants..ts";
 import {
   getRelayerBalanceForChainId,
+  parseEther,
   relayPayment,
   transactionGasCalculationsForDynamicPayments,
 } from "../web3/web3.ts";
@@ -41,6 +42,7 @@ export async function handleLockedDynamicPayments(
     await update.DynamicPaymentRequestJobs.unlockById(paymentRequest.id);
     return;
   }
+
   // If there was an error with estimate gas I reject the transaction!
   if (gasCalculations.errored) {
     await update.DynamicPaymentRequestJobs.statusToRejectedById(
@@ -115,6 +117,7 @@ export async function handleLockedDynamicPayments(
         submittedTransaction: receipt.hash,
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
+        paymentAmount: paymentRequest.requestedAmount,
       });
       // Set the dynamic payment request job to completed!
       await update.DynamicPaymentRequestJobs.statusToCompletedById(

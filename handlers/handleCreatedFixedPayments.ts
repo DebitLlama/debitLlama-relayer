@@ -1,4 +1,4 @@
-import { formatEther, parseEther } from "../ethers.min.js";
+import { formatEther } from "../ethers.min.js";
 import {
   ChainIds,
   PaymentIntentRow,
@@ -7,6 +7,7 @@ import {
 } from "../web3/constants..ts";
 import {
   getRelayerBalanceForChainId,
+  parseEther,
   relayPayment,
   transactionGasCalculationsForFixedPayments,
 } from "../web3/web3.ts";
@@ -138,6 +139,7 @@ export async function handleCreatedFixedPayments(
         submittedTransaction: receipt.hash,
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
+        paymentAmount: paymentIntentRow.maxDebitAmount,
       });
       return;
     } else {
