@@ -42,7 +42,6 @@ export async function handleCreatedFixedPayments(
   const relayerBalance = payeeRelayerBalanceArray[0] as RelayerBalance;
   const proof = paymentIntentRow.proof;
   const publicSignals = paymentIntentRow.publicSignals;
-
   const gasCalculations = await transactionGasCalculationsForFixedPayments({
     proof,
     publicSignals,
@@ -75,7 +74,6 @@ export async function handleCreatedFixedPayments(
     gasCalculations.errored === true &&
     gasCalculations.accountBalanceEnough === false
   ) {
-    // If the account don't have enough balance I update the status of the payment intent!
     await update.PaymentIntents.accountBalanceTooLowByPaymentIntentId(
       paymentIntentRow.id,
     );
@@ -104,6 +102,7 @@ export async function handleCreatedFixedPayments(
     chainId,
     gasCalculations.gasLimit,
     gasCalculations.gasPrice,
+    paymentIntentRow.account_id.accountType,
   ).catch((err) => {
     return false;
   });
