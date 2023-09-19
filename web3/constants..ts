@@ -2,14 +2,12 @@ export enum ChainIds {
   BTT_TESTNET_ID = "0x405",
 }
 export enum VirtualAccountsContractAddress {
-  BTT_TESTNET = "0x12F85Dd36456088f46baD586923eF2eB13482bc3",
+  BTT_TESTNET = "0x870B0E3cf2c556dda20D3cB39e87145C21e8C023",
 }
 
 export enum ConnectedWalletsContractAddress {
-  BTT_TESTNET = "0xd14e897048cd38b9A1872959358B59A974FbACC1",
+  BTT_TESTNET = "0xaB9ADa67294C7f5F4690f23CEaEc4Ec6c4B14976",
 }
-
-
 export enum RPCURLS {
   BTT_TESTNET = "https://pre-rpc.bt.io/",
 }
@@ -26,7 +24,6 @@ export const getConnectedWalletsContractAddress: {
   [ChainIds.BTT_TESTNET_ID]: ConnectedWalletsContractAddress.BTT_TESTNET,
 };
 
-
 export const rpcUrl: { [key in ChainIds]: RPCURLS } = {
   [ChainIds.BTT_TESTNET_ID]: RPCURLS.BTT_TESTNET,
 };
@@ -36,6 +33,10 @@ export enum Pricing {
   Dynamic = "Dynamic",
 }
 
+export enum AccountTypes {
+  VIRTUALACCOUNT = "VIRTUALACCOUNT",
+  CONNECTEDWALLET = "CONNECTEDWALLET",
+}
 
 export enum DynamicPaymentRequestJobsStatus {
   CREATED = "Created",
@@ -63,6 +64,7 @@ export type Account = {
   closed: boolean;
   currency: string;
   balance: string;
+  accountType: AccountTypes;
 };
 
 export type PaymentIntentRow = {
@@ -91,7 +93,6 @@ export type PaymentIntentRow = {
   relayerBalance_id: RelayerBalance;
 };
 
-
 export type RelayerBalance = {
   id: number;
   created_at: string;
@@ -102,14 +103,12 @@ export type RelayerBalance = {
 };
 
 export type DynamicPaymentRequestJobRow = {
-id: number;
-created_at: string;
-paymentIntent_id: PaymentIntentRow;
-requestedAmount: string;
-status: string;
-request_creator_id: string;
-allocatedGas: string;
-relayerBalance_id: number
-
-
-}
+  id: number;
+  created_at: string;
+  paymentIntent_id: PaymentIntentRow;
+  requestedAmount: string;
+  status: string;
+  request_creator_id: string;
+  allocatedGas: string;
+  relayerBalance_id: number;
+};
