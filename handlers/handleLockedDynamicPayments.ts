@@ -74,12 +74,13 @@ export async function handleLockedDynamicPayments(
     chainId,
     gasCalculations.gasLimit,
     gasCalculations.gasPrice,
+    paymentIntentRow.account_id.accountType,
   ).catch((err) => {
     return false;
   });
 
   if (!tx) {
-    // The transaction sending fails for some reason, I unlock the tx, try again later!
+    // The transaction sending fails for some reason, I return and can  try again later!
     await update.DynamicPaymentRequestJobs.unlockById(paymentRequest.id);
     return;
   }
