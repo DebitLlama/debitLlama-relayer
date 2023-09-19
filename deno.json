@@ -3,8 +3,8 @@
   "tasks": {
     "start": "deno run -A main.ts",
     "createdFixedPayments": "deno run -A manual/processCreatedFixedPayments.ts",
-    "lockDynamicPaymentRequests": "deno run -A manual/lockDynamicPaymentRequests.ts",
-    "processLockedDynamicRequests": "deno run -A manual/processLockedDynamicRequests.ts"
+    "lockRequests": "deno run -A manual/lockDynamicPaymentRequests.ts",
+    "processLockedRequests": "deno run -A manual/processLockedDynamicRequests.ts"
   },
   "imports": {
     "$std/": "https://deno.land/std@0.193.0/",
