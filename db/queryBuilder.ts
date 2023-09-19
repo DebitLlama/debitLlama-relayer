@@ -94,7 +94,7 @@ export default class QueryBuilder {
         ) => {
           const res = await this.client.from("RelayerHistory")
             .insert({
-              created_at: new Date().toISOString(),
+              created_at: new Date().toUTCString(),
               payee_user_id: payee_user_id,
               paymentIntent_id: paymentIntentId,
               relayerBalance_id: relayerBalanceId,
@@ -207,7 +207,7 @@ export default class QueryBuilder {
           const res = await this.client.from("Accounts")
             .update({
               balance: newAccountBalance,
-              last_modified: new Date().toISOString(),
+              last_modified: new Date().toUTCString(),
             }).eq(
               "commitment",
               commitment,
