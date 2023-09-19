@@ -1,6 +1,8 @@
 import { ethers } from "../ethers.min.js";
 import {
+  AccountTypes,
   ChainIds,
+  getConnectedWalletsContractAddress,
   getVirtualAccountsContractAddress,
   PaymentIntentRow,
   RelayerBalance,
@@ -9,6 +11,10 @@ import {
 import VirtualAccountsArtifact from "../artifacts/VirtualAccounts.json" assert {
   type: "json",
 };
+import ConnectedWallets from "../artifacts/ConnectedWallets.json" assert {
+  type: "json",
+};
+
 import { Buffer } from "https://deno.land/x/node_buffer@1.1.0/mod.ts";
 
 /**
@@ -58,12 +64,22 @@ export function getWallet(provider: any) {
  */
 
 // I need to implement the server side Contract functions here with ethers js
-export function getContract(provider: any, networkId: string) {
-  const address = getVirtualAccountsContractAddress[networkId as ChainIds];
+export function getContract(
+  provider: any,
+  networkId: string,
+  accountType: AccountTypes,
+) {
+  const address = accountType === AccountTypes.VIRTUALACCOUNT
+    ? getVirtualAccountsContractAddress[networkId as ChainIds]
+    : getConnectedWalletsContractAddress[networkId as ChainIds];
+
+  const abi = accountType === AccountTypes.VIRTUALACCOUNT
+    ? VirtualAccountsArtifact.abi
+    : ConnectedWallets.abi;
 
   return new ethers.Contract(
     address,
-    VirtualAccountsArtifact.abi,
+    abi,
     provider,
   );
 }
@@ -114,9 +130,10 @@ interface DirectDebitArgs {
 export async function estimateRelayerGas(
   args: DirectDebitArgs,
   networkId: string,
+  accountType: AccountTypes,
 ) {
   const provider = getProvider(networkId);
-  const contract = getContract(provider, networkId);
+  const contract = getContract(provider, networkId, accountType);
   const publicSignals = JSON.parse(args.publicSignals);
   const proof = JSON.parse(args.proof);
 
@@ -151,10 +168,11 @@ export async function relayPayment(
   networkId: string,
   gasLimit: bigint,
   gasPrice: bigint,
+  accountType: AccountTypes,
 ) {
   const provider = getProvider(networkId);
   const wallet = getWallet(provider);
-  const contract = getContract(wallet, networkId);
+  const contract = getContract(wallet, networkId, accountType);
   const publicSignals = JSON.parse(args.publicSignals);
   const proof = JSON.parse(args.proof);
 
@@ -255,15 +273,19 @@ export async function transactionGasCalculationsForFixedPayments(
 ): Promise<TransactionGasCalulcationsResult> {
   try {
     //Gonna Estimate Gas for the transaction, this will also check if it's valid!
-    const estimatedGas = await estimateRelayerGas({
-      proof,
-      publicSignals,
-      payeeAddress: paymentIntentRow.payee_address,
-      maxDebitAmount: paymentIntentRow.maxDebitAmount,
-      actualDebitedAmount: paymentIntentRow.maxDebitAmount,
-      debitTimes: paymentIntentRow.debitTimes,
-      debitInterval: paymentIntentRow.debitInterval,
-    }, chainId);
+    const estimatedGas = await estimateRelayerGas(
+      {
+        proof,
+        publicSignals,
+        payeeAddress: paymentIntentRow.payee_address,
+        maxDebitAmount: paymentIntentRow.maxDebitAmount,
+        actualDebitedAmount: paymentIntentRow.maxDebitAmount,
+        debitTimes: paymentIntentRow.debitTimes,
+        debitInterval: paymentIntentRow.debitInterval,
+      },
+      chainId,
+      paymentIntentRow.account_id.accountType,
+    );
     const increasedGasLimit = increaseGasLimit(estimatedGas);
     const feeData = await getGasPrice(chainId as ChainIds);
     return {
@@ -287,15 +309,17 @@ export async function transactionGasCalculationsForFixedPayments(
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
       errored: false,
     };
-  } catch (err) {
-    console.log(err);
+  } catch (err: any) {
+    const accountBalanceEnough = await checkIfOnChainBalanceIsEnough(
+      chainId as ChainIds,
+      paymentIntentRow.commitment,
+      paymentIntentRow.maxDebitAmount,
+      paymentIntentRow.account_id.accountType,
+    );
+
     return {
       relayerBalanceEnough: false,
-      // If the estimateGas threw an error. O check if the accountBalance is is the reason or not!
-      accountBalanceEnough: checkIfAccountBalanceIsEnough(
-        paymentIntentRow.account_id.balance,
-        paymentIntentRow.maxDebitAmount,
-      ),
+      accountBalanceEnough,
       errored: true, // Checking if the process threw an error somewhere
       gasPrice: BigInt(0),
       gasLimit: BigInt(0),
@@ -345,6 +369,32 @@ function checkIfAccountBalanceIsEnough(
   const debitAmountWei = parseEther(debitAmount);
 
   return accountBalanceWei >= debitAmountWei;
+}
+
+async function checkIfOnChainBalanceIsEnough(
+  chainId: ChainIds,
+  commitment: string,
+  maxDebitAmount: string,
+  accountType: AccountTypes,
+) {
+  const provider = getProvider(chainId);
+  const debitcontract: any = getContract(
+    provider,
+    chainId,
+    accountType,
+  );
+
+  const account = await debitcontract.getAccount(commitment).catch(
+    (err: any) => {
+      return BigInt("0");
+    },
+  );
+
+  const balance = account[3];
+
+  const maxDebitAmountWEI = parseEther(maxDebitAmount);
+
+  return balance > maxDebitAmountWEI;
 }
 
 /**
@@ -402,15 +452,19 @@ export async function transactionGasCalculationsForDynamicPayments({
 }: TransactionGasCalculationsArgsForDynamic) {
   try {
     //Gonna Estimate Gas for the transaction, this will also check if it's valid!
-    const estimatedGas = await estimateRelayerGas({
-      proof,
-      publicSignals,
-      payeeAddress: paymentIntentRow.payee_address,
-      maxDebitAmount: paymentIntentRow.maxDebitAmount,
-      actualDebitedAmount: dynamicPaymentAmount,
-      debitTimes: paymentIntentRow.debitTimes,
-      debitInterval: paymentIntentRow.debitInterval,
-    }, chainId);
+    const estimatedGas = await estimateRelayerGas(
+      {
+        proof,
+        publicSignals,
+        payeeAddress: paymentIntentRow.payee_address,
+        maxDebitAmount: paymentIntentRow.maxDebitAmount,
+        actualDebitedAmount: dynamicPaymentAmount,
+        debitTimes: paymentIntentRow.debitTimes,
+        debitInterval: paymentIntentRow.debitInterval,
+      },
+      chainId,
+      paymentIntentRow.account_id.accountType,
+    );
     const increasedGasLimit = increaseGasLimit(estimatedGas);
     const feeData = await getGasPrice(chainId as ChainIds);
     return {
@@ -438,9 +492,11 @@ export async function transactionGasCalculationsForDynamicPayments({
     console.log(err);
     return {
       allocatedBalanceEnough: false,
-      accountBalanceEnough: checkIfAccountBalanceIsEnough(
-        paymentIntentRow.account_id.balance,
+      accountBalanceEnough: await checkIfOnChainBalanceIsEnough(
+        chainId as ChainIds,
+        paymentIntentRow.account_id.commitment,
         dynamicPaymentAmount,
+        paymentIntentRow.account_id.accountType,
       ),
       errored: true, // Checking if the process threw an error somewhere
       gasPrice: BigInt(0),
