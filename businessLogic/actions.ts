@@ -48,7 +48,7 @@ export async function processRecurringFixedPricedSubscriptions(
 }
 
 export function getTimeToLockDynamicPaymentRequest() {
-  const env = Deno.env.get("ENVIRONMENT") || "development";
+  const env = Deno.env.get("ENVIRONMENT");
   //For dev I don't enforce a long time
   if (env === "development") {
     return new Date().toUTCString();
