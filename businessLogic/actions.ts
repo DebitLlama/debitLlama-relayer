@@ -1,6 +1,7 @@
 import QueryBuilder from "../db/queryBuilder.ts";
 import { handleCreatedFixedPayments } from "../handlers/handleCreatedFixedPayments.ts";
 import {
+  AccountTypes,
   ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
@@ -50,11 +51,11 @@ export function getTimeToLockDynamicPaymentRequest() {
   const env = Deno.env.get("ENVIRONMENT") || "development";
   //For dev I don't enforce a long time
   if (env === "development") {
-    return new Date().toISOString();
+    return new Date().toUTCString();
   } else {
     const HOUR = 1000 * 60 * 60;
     const anHourAgo = Date.now() - HOUR;
-    return new Date(anHourAgo).toISOString();
+    return new Date(anHourAgo).toUTCString();
   }
 }
 
@@ -167,8 +168,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
         JSON.parse(paymentIntentRow.currency),
       );
 
-      // Update the account balance!
-
+      // Update the account balance for both the virtual and the connected wallet!
       await update.Accounts.balanceByCommitment(
         newAccountBalance,
         commitment,
@@ -180,7 +180,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
         ? PaymentIntentStatus.PAID
         : PaymentIntentStatus.RECURRING;
 
-      const lastPaymentDate = new Date().toISOString();
+      const lastPaymentDate = new Date().toUTCString();
 
       const nextPaymentDate = statusText === PaymentIntentStatus.RECURRING
         ? calculateDebitIntervalDays(paymentIntentRow.debitInterval)
@@ -203,5 +203,5 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
 function calculateDebitIntervalDays(debitInterval: number) {
   const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + debitInterval);
-  return currentDate.toISOString();
+  return currentDate.toUTCString();
 }
