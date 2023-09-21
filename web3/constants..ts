@@ -2,11 +2,11 @@ export enum ChainIds {
   BTT_TESTNET_ID = "0x405",
 }
 export enum VirtualAccountsContractAddress {
-  BTT_TESTNET = "0x870B0E3cf2c556dda20D3cB39e87145C21e8C023",
+  BTT_TESTNET = "0x2137F4096365bCA1457E945838e0d7EC1925A973",
 }
 
 export enum ConnectedWalletsContractAddress {
-  BTT_TESTNET = "0xaB9ADa67294C7f5F4690f23CEaEc4Ec6c4B14976",
+  BTT_TESTNET = "0xc65DDA2E81dB71C998D08A525D70dFA844BF5D3e",
 }
 export enum RPCURLS {
   BTT_TESTNET = "https://pre-rpc.bt.io/",
