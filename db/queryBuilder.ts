@@ -38,8 +38,7 @@ export default class QueryBuilder {
           const res = await this.client.from("PaymentIntents")
             .select("*,account_id(*)")
             .eq("statusText", PaymentIntentStatus.CREATED)
-            .eq("pricing",Pricing.Fixed)
-            ;
+            .eq("pricing", Pricing.Fixed);
 
           return this.responseHandler(res);
         },
@@ -75,6 +74,14 @@ export default class QueryBuilder {
           return this.responseHandler(res);
         },
       },
+      RPC: {
+        emailByUserId: async (user_id: string) => {
+          const res = await this.client.rpc("get_email_by_user_uuid2", {
+            user_id,
+          });
+          return this.responseHandler(res);
+        },
+      },
     };
   }
 
@@ -90,7 +97,7 @@ export default class QueryBuilder {
           allGasUsed: string,
           network: string,
           paymentAmount: string,
-          paymentCurrency: string
+          paymentCurrency: string,
         ) => {
           const res = await this.client.from("RelayerHistory")
             .insert({
@@ -226,6 +233,15 @@ export default class QueryBuilder {
           }).eq("id", relayerBalanceId);
           return this.responseHandler(res);
         },
+        missingBalanceForBtt_Mainnet: async (
+          newMissingAmount: string,
+          relayerBalanceId: number,
+        ) => {
+          const res = await this.client.from("RelayerBalance").update({
+            Missing_BTT_Mainnet_Balance: formatEther(newMissingAmount),
+          }).eq("id", relayerBalanceId);
+          return this.responseHandler(res);
+        },
         //updateRelayerBalanceBTT_Donau_TestnetBalanceByUserId
         Btt_donau_Testnet_balanceByUserId: async (
           newBalance: any,
@@ -237,6 +253,16 @@ export default class QueryBuilder {
             BTT_Donau_Testnet_Balance: formatEther(newBalance),
           }).eq("user_id", payee_user_id).select();
           return this.responseHandler(res);
+        },
+        Btt_mainnet_balanceByUserId: async (
+          newBalance: any,
+          payee_user_id: string,
+        ) => {
+          const res = await this.client.from(
+            "RelayerBalance",
+          ).update({
+            BTT_Mainnet_Balance: formatEther(newBalance),
+          }).eq("user_id", payee_user_id).select();
         },
       },
     };

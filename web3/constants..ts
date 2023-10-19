@@ -1,31 +1,39 @@
 export enum ChainIds {
   BTT_TESTNET_ID = "0x405",
+  BTT_MAINNET_ID = "0xc7",
 }
 export enum VirtualAccountsContractAddress {
-  BTT_TESTNET = "0x2137F4096365bCA1457E945838e0d7EC1925A973",
+  BTT_TESTNET = "0xF75515Df5AC843a8B261E232bB890dc2F75A4066",
+  BTT_MAINNET = "0xc4Cf42D5a6F4F061cf5F98d0338FC5913b6fF581",
 }
 
 export enum ConnectedWalletsContractAddress {
-  BTT_TESTNET = "0xc65DDA2E81dB71C998D08A525D70dFA844BF5D3e",
+  BTT_TESTNET = "0x9c85da9E45126Fd45BC62656026A2E7226bba239",
+  BTT_MAINNET = "0xF9962f3C23De4e864E56ef29125D460c785905c6",
 }
+
 export enum RPCURLS {
   BTT_TESTNET = "https://pre-rpc.bt.io/",
+  BTT_MAINNET = "https://rpc.bittorrentchain.io",
 }
 
 export const getVirtualAccountsContractAddress: {
   [keys in ChainIds]: VirtualAccountsContractAddress;
 } = {
   [ChainIds.BTT_TESTNET_ID]: VirtualAccountsContractAddress.BTT_TESTNET,
+  [ChainIds.BTT_MAINNET_ID]: VirtualAccountsContractAddress.BTT_MAINNET,
 };
 
 export const getConnectedWalletsContractAddress: {
   [keys in ChainIds]: ConnectedWalletsContractAddress;
 } = {
   [ChainIds.BTT_TESTNET_ID]: ConnectedWalletsContractAddress.BTT_TESTNET,
+  [ChainIds.BTT_MAINNET_ID]: ConnectedWalletsContractAddress.BTT_MAINNET,
 };
 
 export const rpcUrl: { [key in ChainIds]: RPCURLS } = {
   [ChainIds.BTT_TESTNET_ID]: RPCURLS.BTT_TESTNET,
+  [ChainIds.BTT_MAINNET_ID]: RPCURLS.BTT_MAINNET,
 };
 
 export enum Pricing {
@@ -70,7 +78,7 @@ export type Account = {
 export type PaymentIntentRow = {
   id: number;
   created_at: string;
-  creator_user_id: number;
+  creator_user_id: string;
   payee_user_id: string;
   account_id: Account;
   payee_address: string;
@@ -98,6 +106,8 @@ export type RelayerBalance = {
   created_at: string;
   BTT_Donau_Testnet_Balance: string;
   Missing_BTT_Donau_Testnet_Balance: string;
+  BTT_Mainnet_Balance: string;
+  Missing_BTT_Mainnet_Balance: string;
   user_id: string;
   last_topup: string;
 };

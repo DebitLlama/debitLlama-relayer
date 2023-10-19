@@ -412,6 +412,8 @@ export function getRelayerBalanceForChainId(
   switch (chainId) {
     case ChainIds.BTT_TESTNET_ID:
       return relayerBalance.BTT_Donau_Testnet_Balance;
+    case ChainIds.BTT_MAINNET_ID:
+      return relayerBalance.BTT_Mainnet_Balance;
     default:
       return "0";
   }
@@ -433,6 +435,8 @@ export function calculateFeePerChainId(
 ) {
   switch (chainId) {
     case ChainIds.BTT_TESTNET_ID:
+      return feeData.gasPrice * increasedGasLimit;
+    case ChainIds.BTT_MAINNET_ID:
       return feeData.gasPrice * increasedGasLimit;
     default:
       return BigInt(0);
