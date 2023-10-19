@@ -1,7 +1,6 @@
 import QueryBuilder from "../db/queryBuilder.ts";
 import { handleCreatedFixedPayments } from "../handlers/handleCreatedFixedPayments.ts";
 import {
-  AccountTypes,
   ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
@@ -110,6 +109,18 @@ export async function updatePaymentIntentRelayingFailed(arg: {
       break;
     }
 
+    case ChainIds.BTT_MAINNET_ID: {
+      const already_missing_amount = parseEther(
+        arg.relayerBalance.Missing_BTT_Mainnet_Balance,
+      );
+      const newMissingAmount = already_missing_amount + arg.totalFee;
+      await update.RelayerBalance.missingBalanceForBtt_Mainnet(
+        newMissingAmount,
+        arg.relayerBalance.id,
+      );
+      break;
+    }
+
     default:
       break;
   }
@@ -145,7 +156,7 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
 
   const update = queryBuilder.update();
   const insert = queryBuilder.insert();
-
+  // Update the relayer balance per network!
   switch (network) {
     // FOR BTT DONAU TESTNET!
     case ChainIds.BTT_TESTNET_ID: {
@@ -156,48 +167,55 @@ export async function updatePayeeRelayerBalanceSwitchNetwork(
         payee_user_id,
       );
 
-      // Add the transaction to the relayer history
-      await insert.RelayerHistory.newTx(
-        payee_user_id,
-        paymentIntentRow.id,
-        relayerBalance_id,
-        submittedTransaction,
-        allGasUsed,
-        network,
-        arg.paymentAmount,
-        JSON.parse(paymentIntentRow.currency),
-      );
-
-      // Update the account balance for both the virtual and the connected wallet!
-      await update.Accounts.balanceByCommitment(
-        newAccountBalance,
-        commitment,
-      );
-
-      const used_for = paymentIntentRow.used_for + 1;
-      const debitTimes = paymentIntentRow.debitTimes;
-      const statusText = used_for - debitTimes === 0
-        ? PaymentIntentStatus.PAID
-        : PaymentIntentStatus.RECURRING;
-
-      const lastPaymentDate = new Date().toUTCString();
-
-      const nextPaymentDate = statusText === PaymentIntentStatus.RECURRING
-        ? calculateDebitIntervalDays(paymentIntentRow.debitInterval)
-        : paymentIntentRow.nextPaymentDate; // if it's paid then there is no need to update this
-
-      await update.PaymentIntents.statusAndDatesAfterSuccess(
-        statusText,
-        lastPaymentDate,
-        nextPaymentDate,
-        used_for,
-        paymentIntentRow.id,
-      );
       break;
     }
+    case ChainIds.BTT_MAINNET_ID:
+      await update.RelayerBalance.Btt_mainnet_balanceByUserId(
+        newRelayerBalance,
+        payee_user_id,
+      );
+      break;
     default:
       break;
   }
+
+  // Add the transaction to the relayer history
+  await insert.RelayerHistory.newTx(
+    payee_user_id,
+    paymentIntentRow.id,
+    relayerBalance_id,
+    submittedTransaction,
+    allGasUsed,
+    network,
+    arg.paymentAmount,
+    JSON.parse(paymentIntentRow.currency),
+  );
+
+  // Update the account balance for both the virtual and the connected wallet!
+  await update.Accounts.balanceByCommitment(
+    newAccountBalance,
+    commitment,
+  );
+
+  const used_for = paymentIntentRow.used_for + 1;
+  const debitTimes = paymentIntentRow.debitTimes;
+  const statusText = used_for - debitTimes === 0
+    ? PaymentIntentStatus.PAID
+    : PaymentIntentStatus.RECURRING;
+
+  const lastPaymentDate = new Date().toUTCString();
+
+  const nextPaymentDate = statusText === PaymentIntentStatus.RECURRING
+    ? calculateDebitIntervalDays(paymentIntentRow.debitInterval)
+    : paymentIntentRow.nextPaymentDate; // if it's paid then there is no need to update this
+
+  await update.PaymentIntents.statusAndDatesAfterSuccess(
+    statusText,
+    lastPaymentDate,
+    nextPaymentDate,
+    used_for,
+    paymentIntentRow.id,
+  );
 }
 
 function calculateDebitIntervalDays(debitInterval: number) {
