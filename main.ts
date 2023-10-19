@@ -5,6 +5,9 @@ import {
   every30MinProcessCreatedFixPayments,
   every30MinProcessLockedDynamicRequests,
 } from "./scheduler/scheduler.ts";
+import { getRelayerBalances } from "./web3/web3.ts";
+
+await getRelayerBalances();
 
 function main() {
   every30MinProcessCreatedFixPayments();
