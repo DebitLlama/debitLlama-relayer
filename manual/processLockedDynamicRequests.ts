@@ -3,6 +3,7 @@ import "$std/dotenv/load.ts";
 import { createClient } from "@supabase/supabase-js";
 import { processLockedDynamicRequests } from "../businessLogic/actions.ts";
 import QueryBuilder from "../db/queryBuilder.ts";
+import { getRelayerBalances } from "../web3/web3.ts";
 
 async function main() {
   console.log("processCreatedFixedPayments start");
@@ -14,8 +15,11 @@ async function main() {
   );
 
   const queryBuilder = new QueryBuilder(client);
+  await getRelayerBalances();
 
-  await processLockedDynamicRequests(queryBuilder);
+  await processLockedDynamicRequests(queryBuilder).then(async () => {
+    await getRelayerBalances();
+  });
 }
 
 await main();
