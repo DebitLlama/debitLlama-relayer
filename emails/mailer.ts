@@ -36,7 +36,7 @@ export interface EmailContent {
 }
 
 export interface BillingStatementArgs {
-  subsciptionLink: string;
+  subscriptionLink: string;
   billedAmount: string;
 }
 
@@ -45,15 +45,11 @@ export const BillingStatementPayee = (
 ): EmailContent => {
   return {
     content:
-      `Billing Statement. Your have received ${args.billedAmount} \n See the payment intent for more details ${args.subsciptionLink}`,
+      `Billing Statement. Your have received ${args.billedAmount} \n See the payment intent for more details ${args.subscriptionLink}`,
     html: `<div style="text-align: center;">
     <h2 style="margin: 0 auto;">Billing Statement</h2>
-    <p>
-    You have received a new payment of ${args.billedAmount}.
-    </p>
-    <p>
-    See the <a href="${args.subsciptionLink}" target="_blank">Payment Intent</a> for more details!
-    </p>
+    <p>You have received a new payment of ${args.billedAmount}</p>
+    <p>See the <a href="${args.subscriptionLink}" target="_blank">Payment Intent</a> for more details!</p>
     </div>`,
   };
 };
@@ -63,15 +59,11 @@ export const BillingStatementCustomer = (
 ): EmailContent => {
   return {
     content:
-      `Billing Statement. Your account has been debited ${args.billedAmount}.\n See the Subsciption for more details ${args.subsciptionLink}`,
+      `Billing Statement. Your account has been debited ${args.billedAmount}.\n See the Subscription for more details ${args.subscriptionLink}`,
     html: `<div style="text-align: center;">
     <h2 style="margin: 0 auto;">Billing Statement</h2>
-    <p>
-    We have billed your account ${args.billedAmount}. 
-    </p>
-    <p>
-    See the <a href="${args.subsciptionLink}" target="_blank" >Subsciption</a> for more details!
-    </p>
+    <p>We have billed your account ${args.billedAmount}</p>
+    <p>See the <a href="${args.subscriptionLink}" target="_blank" >Subscription</a> for more details!</p>
     </div>`,
   };
 };
@@ -80,9 +72,9 @@ export const PaymentFailurePayee = (
   args: BillingStatementArgs,
 ): EmailContent => {
   return {
-    content: `Your payment request has failed. ${args.subsciptionLink}`,
+    content: `Your payment request has failed. ${args.subscriptionLink}`,
     html:
-      `<p>Your payment request has failed! \n You can find more details at the <a href="${args.subsciptionLink}" target="_blank">link here</a></p>`,
+      `<p>Your payment request has failed! \n You can find more details at the <a href="${args.subscriptionLink}" target="_blank">link here</a></p>`,
   };
 };
 
@@ -91,9 +83,9 @@ export const PaymentFailureCustomer = (
 ): EmailContent => {
   return {
     content:
-      `You have insufficient balance in your account to continue payments. The merchant may cancel your subsciption. To continue please update your balance using the accounts dashboard! \n ${args.subsciptionLink}`,
+      `You have insufficient balance in your account to continue payments. The merchant may cancel your subscription. To continue please update your balance using the accounts dashboard! \n ${args.subscriptionLink}`,
     html:
-      `<p>You have insufficient balance in your account to continue payments, the merchant may cancel your subsciption. To continue please update your balance! You can find more details at the <a href="${args.subsciptionLink}" target="_blank">link here</a></p>`,
+      `<p>You have insufficient balance in your account to continue payments, the merchant may cancel your subscription. To continue please update your balance! You can find more details at the <a href="${args.subscriptionLink}" target="_blank">link here</a></p>`,
   };
 };
 
@@ -102,9 +94,9 @@ export const DynamicPaymentRequestRejected = (
 ): EmailContent => {
   return {
     content:
-      `Your payment request was rejected. We are unable to process it this time. Please create a new request.\n ${args.subsciptionLink}`,
+      `Your payment request was rejected. We are unable to process it this time. Please create a new request.\n ${args.subscriptionLink}`,
     html:
-      `<p>Your payment request was rejected. We are unable to process it this time. Please create a new request <a href="${args.subsciptionLink}" target="_blank">here</a></p>`,
+      `<p>Your payment request was rejected. We are unable to process it this time. Please create a new request <a href="${args.subscriptionLink}" target="_blank">here</a></p>`,
   };
 };
 
