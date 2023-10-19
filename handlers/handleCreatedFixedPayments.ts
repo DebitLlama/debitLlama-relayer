@@ -16,6 +16,7 @@ import {
   updatePaymentIntentRelayingFailed,
 } from "../businessLogic/actions.ts";
 import QueryBuilder from "../db/queryBuilder.ts";
+import { doSendMailTo, SendMailReason } from "../emails/mailer.ts";
 
 /**
  * Relay the direct debit transaction and save the details in the database!
@@ -38,6 +39,14 @@ export async function handleCreatedFixedPayments(
     .byUserId(
       paymentIntentRow.payee_user_id,
     );
+  const payeeEmailData = await select.RPC.emailByUserId(
+    paymentIntentRow.payee_user_id,
+  );
+  const payeeEmail = payeeEmailData.data[0].email;
+  const customerEmailData = await select.RPC.emailByUserId(
+    paymentIntentRow.creator_user_id,
+  );
+  const customerEmail = customerEmailData.data[0].email;
 
   const relayerBalance = payeeRelayerBalanceArray[0] as RelayerBalance;
   const proof = paymentIntentRow.proof;
@@ -76,7 +85,16 @@ export async function handleCreatedFixedPayments(
   ) {
     await update.PaymentIntents.accountBalanceTooLowByPaymentIntentId(
       paymentIntentRow.id,
-    );
+    ).then(async () => {
+      // Notify the customer about the failed payment, he needs to top up his balance!
+      await doSendMailTo(SendMailReason.PaymentFailureCustomer, {
+        billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+          JSON.parse(paymentIntentRow.currency).name
+        }`,
+        subsciptionLink:
+          `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+      }, customerEmail);
+    });
   }
 
   if (
@@ -85,6 +103,14 @@ export async function handleCreatedFixedPayments(
   ) {
     // if something went wrong return now
     // Relayer balance is not enough or the estimateGas threw an error I abort the mission
+    // Notify the payee about the failed payment
+    await doSendMailTo(SendMailReason.PaymentFailurePayee, {
+      billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+        JSON.parse(paymentIntentRow.currency).name
+      }`,
+      subsciptionLink:
+        `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+    }, payeeEmail);
     return;
   }
 
@@ -139,7 +165,27 @@ export async function handleCreatedFixedPayments(
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
         paymentAmount: paymentIntentRow.maxDebitAmount,
+      }).then(async () => {
+        // Send payment success email to customer
+        await doSendMailTo(SendMailReason.BillingStCustomer, {
+          billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+            JSON.parse(paymentIntentRow.currency).name
+          }`,
+          subsciptionLink:
+            `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+        }, customerEmail);
+        
+        // send payment success email to payee
+        await doSendMailTo(SendMailReason.BillingSTPayee, {
+          billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+            JSON.parse(paymentIntentRow.currency).name
+          }`,
+          subsciptionLink:
+            `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+        }, payeeEmail);
+
       });
+
       return;
     } else {
       //TODO: Tx failed, SHould not occur as estiamteGas runs before,

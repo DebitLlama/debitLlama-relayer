@@ -1,5 +1,6 @@
 import { updatePayeeRelayerBalanceSwitchNetwork } from "../businessLogic/actions.ts";
 import QueryBuilder from "../db/queryBuilder.ts";
+import { doSendMailTo, SendMailReason } from "../emails/mailer.ts";
 import { formatEther } from "../ethers.min.js";
 import { ChainIds, DynamicPaymentRequestJobRow } from "../web3/constants..ts";
 import {
@@ -20,7 +21,16 @@ export async function handleLockedDynamicPayments(
   const publicSignals = paymentIntentRow.publicSignals;
   const allocatedGas = paymentRequest.allocatedGas;
   const update = queryBuilder.update();
+  const select = queryBuilder.select();
 
+  const payeeEmailData = await select.RPC.emailByUserId(
+    paymentIntentRow.payee_user_id,
+  );
+  const payeeEmail = payeeEmailData.data[0].email;
+  const customerEmailData = await select.RPC.emailByUserId(
+    paymentIntentRow.creator_user_id,
+  );
+  const customerEmail = customerEmailData.data[0].email;
   //Relayer balance was already allocated so I don't need to handle relayer gas here. Phew!
 
   //Estimate Gas for the transaction and check if the Allocated Gas covers it!
@@ -39,7 +49,18 @@ export async function handleLockedDynamicPayments(
     gasCalculations.allocatedGasEnough === false &&
     gasCalculations.errored === false
   ) {
-    await update.DynamicPaymentRequestJobs.unlockById(paymentRequest.id);
+    await update.DynamicPaymentRequestJobs.unlockById(paymentRequest.id).then(
+      async () => {
+        await doSendMailTo(SendMailReason.DynamicPaymentRequestRejected, {
+          billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+            JSON.parse(paymentIntentRow.currency).name
+          }`,
+          subsciptionLink:
+            `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+        }, payeeEmail);
+      },
+    );
+
     return;
   }
 
@@ -55,7 +76,17 @@ export async function handleLockedDynamicPayments(
         .accountBalanceTooLowForDynamicPaymentByPaymentIntentId(
           paymentIntentRow.id,
           paymentRequest.requestedAmount,
-        );
+        ).then(async () => {
+          //Notify the customer about the failed payment!
+
+          await doSendMailTo(SendMailReason.PaymentFailureCustomer, {
+            billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+              JSON.parse(paymentIntentRow.currency).name
+            }`,
+            subsciptionLink:
+              `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+          }, customerEmail);
+        });
     }
     return;
   }
@@ -124,6 +155,24 @@ export async function handleLockedDynamicPayments(
       await update.DynamicPaymentRequestJobs.statusToCompletedById(
         paymentRequest.id,
       );
+
+      // Send payment success email to customer
+      await doSendMailTo(SendMailReason.BillingStCustomer, {
+        billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+          JSON.parse(paymentIntentRow.currency).name
+        }`,
+        subsciptionLink:
+          `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+      }, customerEmail);
+
+      // send payment success email to payee
+      await doSendMailTo(SendMailReason.BillingSTPayee, {
+        billedAmount: `${paymentIntentRow.maxDebitAmount} ${
+          JSON.parse(paymentIntentRow.currency).name
+        }`,
+        subsciptionLink:
+          `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
+      }, payeeEmail);
     } else {
       // The transaction failed, should not occur as estimateGas runs before
       // For now nothing happens. Need to handle this edge case later!
