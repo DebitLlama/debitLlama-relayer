@@ -6,6 +6,7 @@ import {
   processRecurringFixedPricedSubscriptions,
 } from "../businessLogic/actions.ts";
 import { initializeSupabase } from "../db/client.ts";
+import { getRelayerBalances } from "../web3/web3.ts";
 
 export function every30MinProcessCreatedFixPayments() {
   console.log("Initialized every30MinProcessCreatedFixPayments");
@@ -13,7 +14,10 @@ export function every30MinProcessCreatedFixPayments() {
   cron("*/30 * * * *", async () => {
     const queryBuilder = initializeSupabase();
     console.log("Running every30MinProcessCreatedFixPayments");
-    await processCreatedFixedPayments(queryBuilder);
+    await getRelayerBalances();
+    await processCreatedFixedPayments(queryBuilder).then(async () => {
+      await getRelayerBalances();
+    });
   });
 }
 export function every2HoursProcessRecurringFixedPricedSubscriptions() {
@@ -25,8 +29,12 @@ export function every2HoursProcessRecurringFixedPricedSubscriptions() {
     const queryBuilder = initializeSupabase();
 
     console.log("Running every2HoursProcessRecurringFixedPricedSubscriptions");
-
-    await processRecurringFixedPricedSubscriptions(queryBuilder);
+    await getRelayerBalances();
+    await processRecurringFixedPricedSubscriptions(queryBuilder).then(
+      async () => {
+        await getRelayerBalances();
+      },
+    );
   });
 }
 
@@ -36,8 +44,13 @@ export function every30MinLockDynamicRequests() {
   cron("*/30 * * * *", async () => {
     console.log("Running every30MinLockDynamicRequests");
     const queryBuilder = initializeSupabase();
+    await getRelayerBalances();
 
-    await lockDynamicRequests(queryBuilder);
+    await lockDynamicRequests(queryBuilder).then(
+      async () => {
+        await getRelayerBalances();
+      },
+    );
   });
 }
 
@@ -47,7 +60,12 @@ export function every30MinProcessLockedDynamicRequests() {
   cron("*/30 * * * *", async () => {
     console.log("Running every30MinProcessLockedDynamicRequests");
     const queryBuilder = initializeSupabase();
+    await getRelayerBalances();
 
-    await processLockedDynamicRequests(queryBuilder);
+    await processLockedDynamicRequests(queryBuilder).then(
+      async () => {
+        await getRelayerBalances();
+      },
+    );
   });
 }
