@@ -91,7 +91,7 @@ export async function handleCreatedFixedPayments(
         billedAmount: `${paymentIntentRow.maxDebitAmount} ${
           JSON.parse(paymentIntentRow.currency).name
         }`,
-        subsciptionLink:
+        subscriptionLink:
           `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
       }, customerEmail);
     });
@@ -108,7 +108,7 @@ export async function handleCreatedFixedPayments(
       billedAmount: `${paymentIntentRow.maxDebitAmount} ${
         JSON.parse(paymentIntentRow.currency).name
       }`,
-      subsciptionLink:
+      subscriptionLink:
         `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
     }, payeeEmail);
     return;
@@ -171,7 +171,7 @@ export async function handleCreatedFixedPayments(
           billedAmount: `${paymentIntentRow.maxDebitAmount} ${
             JSON.parse(paymentIntentRow.currency).name
           }`,
-          subsciptionLink:
+          subscriptionLink:
             `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
         }, customerEmail);
         
@@ -180,7 +180,7 @@ export async function handleCreatedFixedPayments(
           billedAmount: `${paymentIntentRow.maxDebitAmount} ${
             JSON.parse(paymentIntentRow.currency).name
           }`,
-          subsciptionLink:
+          subscriptionLink:
             `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
         }, payeeEmail);
 

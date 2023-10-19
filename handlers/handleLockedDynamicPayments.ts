@@ -55,7 +55,7 @@ export async function handleLockedDynamicPayments(
           billedAmount: `${paymentIntentRow.maxDebitAmount} ${
             JSON.parse(paymentIntentRow.currency).name
           }`,
-          subsciptionLink:
+          subscriptionLink:
             `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
         }, payeeEmail);
       },
@@ -83,7 +83,7 @@ export async function handleLockedDynamicPayments(
             billedAmount: `${paymentIntentRow.maxDebitAmount} ${
               JSON.parse(paymentIntentRow.currency).name
             }`,
-            subsciptionLink:
+            subscriptionLink:
               `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
           }, customerEmail);
         });
@@ -161,7 +161,7 @@ export async function handleLockedDynamicPayments(
         billedAmount: `${paymentIntentRow.maxDebitAmount} ${
           JSON.parse(paymentIntentRow.currency).name
         }`,
-        subsciptionLink:
+        subscriptionLink:
           `https://debitllama.com/app/createdPaymentIntents?q=${paymentIntentRow.paymentIntent}`,
       }, customerEmail);
 
@@ -170,7 +170,7 @@ export async function handleLockedDynamicPayments(
         billedAmount: `${paymentIntentRow.maxDebitAmount} ${
           JSON.parse(paymentIntentRow.currency).name
         }`,
-        subsciptionLink:
+        subscriptionLink:
           `https://debitllama.com/app/payeePaymentIntents?q=${paymentIntentRow.paymentIntent}`,
       }, payeeEmail);
     } else {
