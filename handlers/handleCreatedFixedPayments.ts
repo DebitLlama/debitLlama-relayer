@@ -12,10 +12,13 @@ import {
   transactionGasCalculationsForFixedPayments,
 } from "../web3/web3.ts";
 import {
-  updatePayeeRelayerBalanceSwitchNetwork,
   updatePaymentIntentRelayingFailed,
+  updateRelayingSuccess,
 } from "../businessLogic/actions.ts";
-import QueryBuilder from "../db/queryBuilder.ts";
+import {
+  getRelayerBalance,
+  updateAccountBalanceTooLow,
+} from "../businessLogic/fetch.ts";
 
 /**
  * Relay the direct debit transaction and save the details in the database!
@@ -25,19 +28,15 @@ import QueryBuilder from "../db/queryBuilder.ts";
  */
 
 export async function handleCreatedFixedPayments(
-  queryBuilder: QueryBuilder,
   paymentIntentRow: PaymentIntentRow,
 ) {
   console.log(
     "Starting to handle a payment intent with created state and fixed pricing",
   );
   const chainId = paymentIntentRow.network as ChainIds;
-  const select = queryBuilder.select();
-  const update = queryBuilder.update();
-  const { data: payeeRelayerBalanceArray } = await select.RelayerBalance
-    .byUserId(
-      paymentIntentRow.payee_user_id,
-    );
+  const { data: payeeRelayerBalanceArray } = await getRelayerBalance(
+    paymentIntentRow.payee_user_id,
+  );
 
   const relayerBalance = payeeRelayerBalanceArray[0] as RelayerBalance;
   const proof = paymentIntentRow.proof;
@@ -60,8 +59,7 @@ export async function handleCreatedFixedPayments(
     ) {
       await updatePaymentIntentRelayingFailed({
         chainId,
-        queryBuilder: queryBuilder,
-        paymentIntent: paymentIntentRow.paymentIntent,
+        paymentIntentId: paymentIntentRow.id,
         relayerBalance,
         totalFee: gasCalculations.totalFee,
       });
@@ -74,7 +72,7 @@ export async function handleCreatedFixedPayments(
     gasCalculations.errored === true &&
     gasCalculations.accountBalanceEnough === false
   ) {
-    await update.PaymentIntents.accountBalanceTooLowByPaymentIntentId(
+    await updateAccountBalanceTooLow(
       paymentIntentRow.id,
     );
   }
@@ -85,7 +83,7 @@ export async function handleCreatedFixedPayments(
   ) {
     // if something went wrong return now
     // Relayer balance is not enough or the estimateGas threw an error I abort the mission
-    
+
     return;
   }
 
@@ -128,19 +126,18 @@ export async function handleCreatedFixedPayments(
       // update the database with the details of the relayed transaction
       const newRelayerBalance: any = parseEther(currentRelayerBalance) - fee;
 
-      await updatePayeeRelayerBalanceSwitchNetwork({
-        queryBuilder,
+      await updateRelayingSuccess({
         network: chainId,
         payee_user_id: paymentIntentRow.payee_user_id,
         newRelayerBalance,
         allGasUsed: formatEther(fee),
-        paymentIntentRow: paymentIntentRow,
+        paymentIntentRow,
         relayerBalance_id: relayerBalance.id,
         submittedTransaction: receipt.hash,
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
         paymentAmount: paymentIntentRow.maxDebitAmount,
-      })
+      });
 
       return;
     } else {

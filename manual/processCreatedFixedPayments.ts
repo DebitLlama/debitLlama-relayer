@@ -1,23 +1,13 @@
 import "$std/dotenv/load.ts";
-
-import { createClient } from "@supabase/supabase-js";
-import { processCreatedFixedPayments } from "../businessLogic/actions.ts";
-import QueryBuilder from "../db/queryBuilder.ts";
 import { getRelayerBalances } from "../web3/web3.ts";
+import { processCreatedFixedPayments } from "../businessLogic/actions.ts";
 
 async function main() {
   console.log("processCreatedFixedPayments start");
 
-  const client = createClient(
-    Deno.env.get("SUPABASE_URL") || "",
-    Deno.env.get("SUPABASE_KEY") || "",
-    { auth: { persistSession: false } },
-  );
-
-  const queryBuilder = new QueryBuilder(client);
   await getRelayerBalances();
 
-  await processCreatedFixedPayments(queryBuilder).then(async () => {
+  await processCreatedFixedPayments().then(async () => {
     await getRelayerBalances();
   });
 }

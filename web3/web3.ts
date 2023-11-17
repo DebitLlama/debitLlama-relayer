@@ -521,7 +521,7 @@ export async function transactionGasCalculationsForDynamicPayments({
   } catch (err) {
     console.log(err);
     return {
-      allocatedBalanceEnough: false,
+      allocatedGasEnough: false,
       accountBalanceEnough: await checkIfOnChainBalanceIsEnough(
         chainId as ChainIds,
         paymentIntentRow.account_id.commitment,
