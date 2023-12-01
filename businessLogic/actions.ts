@@ -69,6 +69,7 @@ export async function updatePaymentIntentRelayingFailed(arg: {
   paymentIntentId: number;
   relayerBalance: RelayerBalance;
   totalFee: bigint;
+  paymentIntent: string;
 }) {
   const newMissingBalance = calculateNewMissingBalance(
     arg.chainId,
@@ -81,6 +82,7 @@ export async function updatePaymentIntentRelayingFailed(arg: {
     arg.paymentIntentId,
     newMissingBalance,
     arg.relayerBalance.id,
+    arg.paymentIntent,
   );
 }
 
@@ -159,5 +161,6 @@ export async function updateRelayingSuccess(arg: {
     lastPaymentDate,
     nextPaymentDate,
     used_for,
+    paymentIntent: arg.paymentIntentRow.paymentIntent,
   });
 }

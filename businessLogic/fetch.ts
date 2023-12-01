@@ -43,7 +43,10 @@ export async function getRelayerBalance(payee_id: string) {
   }).then(async (response) => await response.json());
 }
 
-export async function updateAccountBalanceTooLow(paymentIntentId: number) {
+export async function updateAccountBalanceTooLow(
+  paymentIntentId: number,
+  paymentIntent: string,
+) {
   const url = `${appURL}/api/relayer/relayingfailed`;
   return await fetch(url, {
     method: "POST",
@@ -53,6 +56,7 @@ export async function updateAccountBalanceTooLow(paymentIntentId: number) {
     },
     body: JSON.stringify({
       paymentIntentId,
+      paymentIntent,
       reason: PaymentIntentStatus.ACCOUNTBALANCETOOLOW,
     }),
   });
@@ -63,6 +67,7 @@ export async function updateRelayerBalanceTooLow(
   paymentIntentId: number,
   newMissingBalance: string,
   relayerBalanceId: number,
+  paymentIntent: string,
 ) {
   const url = `${appURL}/api/relayer/relayingfailed`;
   return await fetch(url, {
@@ -75,6 +80,7 @@ export async function updateRelayerBalanceTooLow(
       reason: PaymentIntentStatus.BALANCETOOLOWTORELAY,
       chainId,
       paymentIntentId,
+      paymentIntent,
       newMissingBalance,
       relayerBalanceId,
     }),
@@ -97,6 +103,7 @@ export interface RelayingSuccessArgs {
   lastPaymentDate: string;
   nextPaymentDate: string | null;
   used_for: number;
+  paymentIntent: string;
 }
 
 export async function onRelayingSuccess(arg: RelayingSuccessArgs) {
@@ -125,6 +132,7 @@ export async function getDynamicPayment() {
 export async function updateDynamicPaymentRequestJobTo(
   status: DynamicPaymentRequestJobsStatus,
   id: number,
+  paymentIntent: string,
 ) {
   const url = `${appURL}/api/relayer/dynamicjobstatus`;
   return await fetch(url, {
@@ -133,7 +141,7 @@ export async function updateDynamicPaymentRequestJobTo(
       "X-Relayer": xrelayer,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ status, id }),
+    body: JSON.stringify({ status, id, paymentIntent }),
   });
 }
 

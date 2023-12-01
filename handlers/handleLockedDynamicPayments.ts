@@ -47,6 +47,7 @@ export async function handleLockedDynamicPayments(
     await updateDynamicPaymentRequestJobTo(
       DynamicPaymentRequestJobsStatus.CREATED,
       paymentRequest.id,
+      paymentIntentRow.paymentIntent,
     );
 
     return;
@@ -57,6 +58,7 @@ export async function handleLockedDynamicPayments(
     await updateDynamicPaymentRequestJobTo(
       DynamicPaymentRequestJobsStatus.REJECETED,
       paymentRequest.id,
+      paymentIntentRow.paymentIntent,
     );
 
     // if the account balance is too low I will update the payment intent
@@ -95,6 +97,7 @@ export async function handleLockedDynamicPayments(
     await updateDynamicPaymentRequestJobTo(
       DynamicPaymentRequestJobsStatus.CREATED,
       paymentRequest.id,
+      paymentIntentRow.paymentIntent,
     );
     return;
   }
@@ -137,6 +140,7 @@ export async function handleLockedDynamicPayments(
       await updateDynamicPaymentRequestJobTo(
         DynamicPaymentRequestJobsStatus.COMPLETED,
         paymentRequest.id,
+        paymentIntentRow.paymentIntent,
       );
     } else {
       // The transaction failed, should not occur as estimateGas runs before

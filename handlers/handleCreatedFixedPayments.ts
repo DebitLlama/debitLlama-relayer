@@ -62,6 +62,7 @@ export async function handleCreatedFixedPayments(
         paymentIntentId: paymentIntentRow.id,
         relayerBalance,
         totalFee: gasCalculations.totalFee,
+        paymentIntent: paymentIntentRow.paymentIntent,
       });
     }
   }
@@ -74,6 +75,7 @@ export async function handleCreatedFixedPayments(
   ) {
     await updateAccountBalanceTooLow(
       paymentIntentRow.id,
+      paymentIntentRow.paymentIntent,
     );
   }
 
