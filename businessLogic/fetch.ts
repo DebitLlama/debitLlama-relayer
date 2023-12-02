@@ -32,14 +32,13 @@ export async function getFixed(statusText: "CREATED" | "RECURRING") {
 }
 
 export async function getRelayerBalance(payee_id: string) {
-  const url = `${appURL}/api/relayer/balance`;
+  const url = `${appURL}/api/relayer/balance?payee_id=${payee_id}`;
   return await fetch(url, {
     method: "GET",
     headers: {
       "X-Relayer": xrelayer,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ payee_id }),
   }).then(async (response) => await response.json());
 }
 

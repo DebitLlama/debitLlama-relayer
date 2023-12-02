@@ -21,7 +21,7 @@ export async function processCreatedFixedPayments() {
   const results = await getFixed("CREATED");
 
   const { data: jobs } = await results.json();
-
+  console.log("GOT JOBS", jobs.length);
   if (jobs === null || jobs.length === 0) {
     return;
   }
@@ -60,6 +60,7 @@ export async function processLockedDynamicRequests() {
   if (selectedJobs == null || selectedJobs.length === 0) {
     return;
   }
+
   //Now I need to relay the payment and do like the fixed payment but use the dynamic amount that was added!
   await processJobs(selectedJobs, handleLockedDynamicPayments);
 }
