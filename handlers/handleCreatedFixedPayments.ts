@@ -49,6 +49,9 @@ export async function handleCreatedFixedPayments(
     relayerBalance,
   });
 
+  console.log(gasCalculations);
+  console.log(formatEther(gasCalculations.totalFee));
+
   //If estimate gas was successful but the relayer don't have enough balance:
   if (
     gasCalculations.relayerBalanceEnough === false &&
@@ -57,13 +60,14 @@ export async function handleCreatedFixedPayments(
     if (
       paymentIntentRow.statusText !== PaymentIntentStatus.BALANCETOOLOWTORELAY
     ) {
+      console.log("update payment intent relaying failed");
       await updatePaymentIntentRelayingFailed({
         chainId,
         paymentIntentId: paymentIntentRow.id,
         relayerBalance,
         totalFee: gasCalculations.totalFee,
         paymentIntent: paymentIntentRow.paymentIntent,
-      });
+      }).catch(console.error);
     }
   }
 
@@ -73,10 +77,11 @@ export async function handleCreatedFixedPayments(
     gasCalculations.errored === true &&
     gasCalculations.accountBalanceEnough === false
   ) {
+    console.log("updateAccountBalanceTooLow");
     await updateAccountBalanceTooLow(
       paymentIntentRow.id,
       paymentIntentRow.paymentIntent,
-    );
+    ).catch(console.error);
   }
 
   if (
@@ -85,7 +90,9 @@ export async function handleCreatedFixedPayments(
   ) {
     // if something went wrong return now
     // Relayer balance is not enough or the estimateGas threw an error I abort the mission
-
+    console.log(
+      "Relayer balance is not enough or the estimateGas threw an error I abort the mission",
+    );
     return;
   }
 
@@ -105,6 +112,7 @@ export async function handleCreatedFixedPayments(
     gasCalculations.gasPrice,
     paymentIntentRow.account_id.accountType,
   ).catch((err) => {
+    console.error(err);
     return false;
   });
 
@@ -139,12 +147,12 @@ export async function handleCreatedFixedPayments(
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
         paymentAmount: paymentIntentRow.maxDebitAmount,
-      });
+      }).catch(console.error);
 
       return;
     } else {
       //TODO: Tx failed, SHould not occur as estiamteGas runs before,
       //I don't change the database so nothing happens
     }
-  });
+  }).catch(console.error);
 }
