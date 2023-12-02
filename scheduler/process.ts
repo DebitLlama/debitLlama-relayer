@@ -9,7 +9,7 @@ export async function processJobs(
   for (let i = 0; i < jobs.length; i++) {
     const job = jobs[i];
     console.log("GOT JOB ", i);
-    console.log(job);
+    console.log("Payment Intent : ", job.paymentIntent);
     await handler(job).catch((err) => {
       console.log("Job Handler Errorer");
       console.log(err);
