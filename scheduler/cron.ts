@@ -5,37 +5,40 @@ import {
   processLockedDynamicRequests,
   processRecurringFixedPricedSubscriptions,
 } from "../businessLogic/actions.ts";
-import { getRelayerBalances } from "../web3/web3.ts";
 
-Deno.cron("Process created fixed payments", "*/10 * * * *", async () => {
-  await processCreatedFixedPayments().then(async () => {
-    await getRelayerBalances();
-  });
+Deno.cron("Process payments", "*/10 * * * *", async () => {
+  await processCreatedFixedPayments();
+  await processRecurringFixedPricedSubscriptions();
+  await lockDynamicRequestsFetch();
+  await processLockedDynamicRequests();
 });
 
-Deno.cron("process recurring fixed payments", "*/10 * * * *", async () => {
-  console.log("Running every2HoursProcessRecurringFixedPricedSubscriptions");
-  await processRecurringFixedPricedSubscriptions().then(
-    async () => {
-      await getRelayerBalances();
-    },
-  );
-});
+// Deno.cron("process recurring fixed payments", "*/10 * * * *", async () => {
+//   console.log("Running every2HoursProcessRecurringFixedPricedSubscriptions");
 
-Deno.cron("Lock dynamic payment requests", "*/10 * * * *", async () => {
-  console.log("Running every30MinLockDynamicRequests");
-  await lockDynamicRequestsFetch().then(
-    async () => {
-      await getRelayerBalances();
-    },
-  );
-});
+//   await processRecurringFixedPricedSubscriptions().then(
+//     async () => {
+//       await getRelayerBalances();
+//     },
+//   );
 
-Deno.cron("process Locked Dynamic requests", "*/10 * * * *", async () => {
-  console.log("Running every30MinProcessLockedDynamicRequests");
-  await processLockedDynamicRequests().then(
-    async () => {
-      await getRelayerBalances();
-    },
-  );
-});
+// });
+
+// Deno.cron("Lock dynamic payment requests", "*/10 * * * *", async () => {
+//   console.log("Running every30MinLockDynamicRequests");
+
+//   await lockDynamicRequestsFetch().then(
+//     async () => {
+//       await getRelayerBalances();
+//     },
+//   );
+// });
+
+// Deno.cron("process Locked Dynamic requests", "*/10 * * * *", async () => {
+//   console.log("Running every30MinProcessLockedDynamicRequests");
+//   await processLockedDynamicRequests().then(
+//     async () => {
+//       await getRelayerBalances();
+//     },
+//   );
+// });
