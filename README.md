@@ -42,4 +42,7 @@ nuff said, make sure to use the debitllama user
 
 `./run.sh`
 
-
+RELAYER_PRIVATEKEY=
+ENVIRONMENT=development
+XRELAYER=
+URL=
