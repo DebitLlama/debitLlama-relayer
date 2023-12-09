@@ -57,7 +57,6 @@ export enum LockType {
 }
 //You can get the kv keys using this function
 export const keys = {
-  queue_size: () => ["queue", "size"],
   fixed_created: (pi?: string) =>
     pi
       ? ["paymentIntents", "FIXED", "CREATED", pi]
@@ -174,23 +173,11 @@ export async function lockPiForProcessing(
 
   const pi_lock = await kv.get(lockkey);
 
-  const queue_size = await kv.get(keys.queue_size());
-
-  if (queue_size.value === 100000) {
-    // If the queue is full, I don't enqueue this paymentIntent. Next time!
-    return;
-  }
-
   if (pi_lock.value === null) {
     // There is no lock,] yet so I can create a default one and enqueue the job
     await kv.atomic()
       .check(pi_lock)
-      .check(queue_size)
       .set(lockkey, true)
-      .set(
-        keys.queue_size(),
-        getNewQueueSize(queue_size.value as number | null, "INC"),
-      )
       .enqueue({
         type,
         value: paymentIntentRow,
@@ -205,8 +192,6 @@ export async function deleteLock(
   pi: PaymentIntentRow | DynamicPaymentRequestJobRow,
   type: KvMessageType,
 ) {
-  const queue_size = await kv.get(keys.queue_size());
-
   let pi_row;
   if (isPaymentIntentRow(pi)) {
     pi_row = pi.paymentIntent;
@@ -218,29 +203,5 @@ export async function deleteLock(
 
   await kv.atomic()
     .delete(lockkey)
-    .set(
-      keys.queue_size(),
-      getNewQueueSize(queue_size.value as number | null, "INC"),
-    )
     .commit();
-}
-
-function getNewQueueSize(
-  queue_size: null | number,
-  order: "INC" | "DEC",
-) {
-  if (!queue_size) {
-    return 1;
-  }
-  if (order === "INC") {
-    return queue_size + 1;
-  }
-
-  //If order is DESC
-
-  if (queue_size === 0) {
-    return queue_size;
-  }
-
-  return queue_size - 1;
 }
