@@ -7,13 +7,13 @@ import {
 } from "../businessLogic/actions.ts";
 import { getRelayerBalances } from "../web3/web3.ts";
 
-Deno.cron("Process created fixed payments", "*/30 * * * *", async () => {
+Deno.cron("Process created fixed payments", "*/10 * * * *", async () => {
   await processCreatedFixedPayments().then(async () => {
     await getRelayerBalances();
   });
 });
 
-Deno.cron("process recurring fixed payments", "0 */2 * * *", async () => {
+Deno.cron("process recurring fixed payments", "*/10 * * * *", async () => {
   console.log("Running every2HoursProcessRecurringFixedPricedSubscriptions");
   await processRecurringFixedPricedSubscriptions().then(
     async () => {
@@ -22,7 +22,7 @@ Deno.cron("process recurring fixed payments", "0 */2 * * *", async () => {
   );
 });
 
-Deno.cron("Lock dynamic payment requests", "*/30 * * * *", async () => {
+Deno.cron("Lock dynamic payment requests", "*/10 * * * *", async () => {
   console.log("Running every30MinLockDynamicRequests");
   await lockDynamicRequestsFetch().then(
     async () => {
@@ -31,7 +31,7 @@ Deno.cron("Lock dynamic payment requests", "*/30 * * * *", async () => {
   );
 });
 
-Deno.cron("process Locked Dynamic requests", "*/30 * * * *", async () => {
+Deno.cron("process Locked Dynamic requests", "*/10 * * * *", async () => {
   console.log("Running every30MinProcessLockedDynamicRequests");
   await processLockedDynamicRequests().then(
     async () => {
