@@ -14,33 +14,3 @@ Deno.cron("Process payments", "*/10 * * * *", async () => {
   await processLockedDynamicRequests();
   await getRelayerBalances();
 });
-
-// Deno.cron("process recurring fixed payments", "*/10 * * * *", async () => {
-//   console.log("Running every2HoursProcessRecurringFixedPricedSubscriptions");
-
-//   await processRecurringFixedPricedSubscriptions().then(
-//     async () => {
-//       await getRelayerBalances();
-//     },
-//   );
-
-// });
-
-// Deno.cron("Lock dynamic payment requests", "*/10 * * * *", async () => {
-//   console.log("Running every30MinLockDynamicRequests");
-
-//   await lockDynamicRequestsFetch().then(
-//     async () => {
-//       await getRelayerBalances();
-//     },
-//   );
-// });
-
-// Deno.cron("process Locked Dynamic requests", "*/10 * * * *", async () => {
-//   console.log("Running every30MinProcessLockedDynamicRequests");
-//   await processLockedDynamicRequests().then(
-//     async () => {
-//       await getRelayerBalances();
-//     },
-//   );
-// });
