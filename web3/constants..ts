@@ -122,3 +122,9 @@ export type DynamicPaymentRequestJobRow = {
   allocatedGas: string;
   relayerBalance_id: number;
 };
+
+export function isPaymentIntentRow(
+  pi: PaymentIntentRow | DynamicPaymentRequestJobRow,
+): pi is PaymentIntentRow {
+  return (pi as PaymentIntentRow).paymentIntent !== undefined;
+}

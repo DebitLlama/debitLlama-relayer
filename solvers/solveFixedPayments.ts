@@ -27,7 +27,7 @@ import {
  * @returns void
  */
 
-export async function handleCreatedFixedPayments(
+export async function solveFixedPayments(
   paymentIntentRow: PaymentIntentRow,
 ) {
   console.log(
@@ -61,6 +61,7 @@ export async function handleCreatedFixedPayments(
       paymentIntentRow.statusText !== PaymentIntentStatus.BALANCETOOLOWTORELAY
     ) {
       console.log("update payment intent relaying failed");
+      //TODO: Deprecate the relayer balance and just use the 10% fee instead!
       await updatePaymentIntentRelayingFailed({
         chainId,
         paymentIntentId: paymentIntentRow.id,

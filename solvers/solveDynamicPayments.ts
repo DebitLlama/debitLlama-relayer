@@ -16,7 +16,7 @@ import {
   transactionGasCalculationsForDynamicPayments,
 } from "../web3/web3.ts";
 
-export async function handleLockedDynamicPayments(
+export async function solveDynamicPayments(
   paymentRequest: DynamicPaymentRequestJobRow,
 ) {
   console.log("Starting to handle a dynamic payment for a payment intent!");

@@ -1,12 +1,9 @@
-import { handleCreatedFixedPayments } from "../handlers/handleCreatedFixedPayments.ts";
 import {
   ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
   RelayerBalance,
 } from "../web3/constants..ts";
-import { processJobs } from "../scheduler/process.ts";
-import { handleLockedDynamicPayments } from "../handlers/handleLockedDynamicPayments.ts";
 import { parseEther } from "../web3/web3.ts";
 import {
   getDynamicPayment,
@@ -16,20 +13,23 @@ import {
   updateRelayerBalanceTooLow,
 } from "./fetch.ts";
 import { formatEther } from "../ethers.min.js";
+import {
+  setCreatedFixed,
+  setDynamicPayment,
+  setRecurringFixed,
+} from "../kv/kv.ts";
 
 export async function processCreatedFixedPayments() {
   const results = await getFixed("CREATED");
-
+  
   const { data: jobs } = await results.json();
+
+  
   console.log("GOT JOBS", jobs.length);
   if (jobs === null || jobs.length === 0) {
     return;
   }
-
-  await processJobs(
-    jobs,
-    handleCreatedFixedPayments,
-  );
+  await setCreatedFixed(jobs);
 }
 
 export async function processRecurringFixedPricedSubscriptions() {
@@ -40,8 +40,10 @@ export async function processRecurringFixedPricedSubscriptions() {
   if (jobs === null || jobs.length === 0) {
     return;
   }
-  // I process the recurring fixed priced subscriptions like I processed the created fixed payments
-  await processJobs(jobs, handleCreatedFixedPayments);
+
+  //Here I should add the jobs to KV and keep them in memory
+
+  await setRecurringFixed(jobs);
 }
 
 export async function lockDynamicRequestsFetch() {
@@ -61,8 +63,7 @@ export async function processLockedDynamicRequests() {
     return;
   }
 
-  //Now I need to relay the payment and do like the fixed payment but use the dynamic amount that was added!
-  await processJobs(selectedJobs, handleLockedDynamicPayments);
+  await setDynamicPayment(selectedJobs);
 }
 
 export async function updatePaymentIntentRelayingFailed(arg: {
