@@ -55,10 +55,22 @@ export function getWallet(provider: any) {
   const key = getSecretKey();
   return new ethers.Wallet(key, provider);
 }
+
+export interface CurrentRelayerBalances {
+  name: string;
+  balance: string;
+  currency: string;
+}
+
+export interface RelayerData {
+  balances: CurrentRelayerBalances[];
+  address: string;
+}
+
 /**
  * A helper function to check what is the relayer's address now
  */
-export async function getRelayerBalances() {
+export async function getRelayerBalances(): Promise<RelayerData> {
   const BTTTestnetProvider = getProvider(ChainIds.BTT_TESTNET_ID);
   const BTTMainnetProvider = getProvider(ChainIds.BTT_MAINNET_ID);
   const wallet = getWallet(BTTMainnetProvider);
@@ -67,19 +79,21 @@ export async function getRelayerBalances() {
   const BTTTestnetBalance = await BTTTestnetProvider.getBalance(address);
   const BTTMainnetBalance = await BTTMainnetProvider.getBalance(address);
 
-  console.log("Current Relayer Address: ", address);
-
-  console.log(
-    "BTT Donau Testnet BALANCE:  ",
-    ethers.formatEther(BTTTestnetBalance),
-    "BTT",
-  );
-
-  console.log(
-    "BTT MAINNET BALANCE:  ",
-    ethers.formatEther(BTTMainnetBalance),
-    " BTT",
-  );
+  return {
+    address,
+    balances: [
+      {
+        name: "BTT Donau Testnet",
+        balance: ethers.formatEther(BTTTestnetBalance),
+        currency: "BTT",
+      },
+      {
+        name: "BTT Mainnet Balance",
+        balance: ethers.formatEther(BTTMainnetBalance),
+        currency: "BTT",
+      },
+    ],
+  };
 }
 
 /** Gets the smart contract using the provider and network id
