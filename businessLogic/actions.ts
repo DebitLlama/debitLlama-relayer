@@ -1,202 +1,119 @@
-import QueryBuilder from "../db/queryBuilder.ts";
-import { handleCreatedFixedPayments } from "../handlers/handleCreatedFixedPayments.ts";
 import {
-  AccountTypes,
   ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
   RelayerBalance,
 } from "../web3/constants..ts";
-import { processJobs } from "../scheduler/process.ts";
-import { handleLockedDynamicPayments } from "../handlers/handleLockedDynamicPayments.ts";
 import { parseEther } from "../web3/web3.ts";
+import {
+  getDynamicPayment,
+  getFixed,
+  lockDynamicPaymentRequests,
+  onRelayingSuccess,
+  updateRelayerBalanceTooLow,
+} from "./fetch.ts";
+import { formatEther } from "../ethers.min.js";
+import {
+  setCreatedFixed,
+  setDynamicPayment,
+  setRecurringFixed,
+} from "../kv/kv.ts";
 
-/**
- * This will handle the created fixed payments
- * @param queryBuilder
- * @returns
- */
-export async function processCreatedFixedPayments(queryBuilder: QueryBuilder) {
-  const select = queryBuilder.select();
+export async function processCreatedFixedPayments() {
+  const results = await getFixed("CREATED");
+  
+  const { data: jobs } = await results.json();
 
-  const { data: jobs } = await select.PaymentIntents
-    .fixedPricingWhereStatusIsCreated();
-
+  
+  console.log("GOT JOBS", jobs.length);
   if (jobs === null || jobs.length === 0) {
     return;
   }
-
-  await processJobs(
-    jobs,
-    queryBuilder,
-    handleCreatedFixedPayments,
-  );
+  await setCreatedFixed(jobs);
 }
 
-export async function processRecurringFixedPricedSubscriptions(
-  queryBuilder: QueryBuilder,
-) {
-  const select = queryBuilder.select();
+export async function processRecurringFixedPricedSubscriptions() {
+  const results = await getFixed("RECURRING");
   // I need to select the fixed priced payments where the status is recurring and the next payment date is in the past!
-  const { data: jobs } = await select.PaymentIntents
-    .byRecurringTransactionsWherePaymentIsDue();
+  const { data: jobs } = await results.json();
+
   if (jobs === null || jobs.length === 0) {
     return;
   }
-  // I process the recurring fixed priced subscriptions like I processed the created fixed payments
-  await processJobs(jobs, queryBuilder, handleCreatedFixedPayments);
+
+  //Here I should add the jobs to KV and keep them in memory
+
+  await setRecurringFixed(jobs);
 }
 
-export function getTimeToLockDynamicPaymentRequest() {
-  const env = Deno.env.get("ENVIRONMENT");
-  //For dev I don't enforce a long time
-  if (env === "development") {
-    return new Date().toUTCString();
-  } else {
-    const HOUR = 1000 * 60 * 60;
-    const anHourAgo = Date.now() - HOUR;
-    return new Date(anHourAgo).toUTCString();
+export async function lockDynamicRequestsFetch() {
+  const res = await lockDynamicPaymentRequests();
+  if (res.status !== 200) {
+    console.log(res);
+    console.error("Locking dynamic payment requests failed!");
   }
 }
 
-/**
- * This process will update the created dynamic requests to locked so I can process them
- * @param queryBuilder
- */
-
-export async function lockDynamicRequests(queryBuilder: QueryBuilder) {
-  const update = queryBuilder.update();
-  const res = await update.DynamicPaymentRequestJobs
-    .whereCreatedOlderThan1Hour(getTimeToLockDynamicPaymentRequest());
-  console.log(res);
-}
-
-export async function processLockedDynamicRequests(queryBuilder: QueryBuilder) {
-  const select = queryBuilder.select();
+export async function processLockedDynamicRequests() {
+  const response = await getDynamicPayment();
   const {
     data: selectedJobs,
-  } = await select.DynamicPaymentRequestJobs.whereStatusIsLocked();
+  } = await response.json();
   if (selectedJobs == null || selectedJobs.length === 0) {
     return;
   }
-  //Now I need to relay the payment and do like the fixed payment but use the dynamic amount that was added!
-  await processJobs(selectedJobs, queryBuilder, handleLockedDynamicPayments);
+
+  await setDynamicPayment(selectedJobs);
 }
 
 export async function updatePaymentIntentRelayingFailed(arg: {
   chainId: ChainIds;
-  queryBuilder: QueryBuilder;
-  paymentIntent: string;
+  paymentIntentId: number;
   relayerBalance: RelayerBalance;
   totalFee: bigint;
+  paymentIntent: string;
 }) {
-  const update = arg.queryBuilder.update();
-  await update.PaymentIntents.toBalanceTooLowToRelaybyPaymentIntent(
-    arg.paymentIntent,
+  const newMissingBalance = calculateNewMissingBalance(
+    arg.chainId,
+    arg.totalFee,
+    arg.relayerBalance,
   );
 
-  switch (arg.chainId) {
-    case ChainIds.BTT_TESTNET_ID: {
-      const already_missing_amount = parseEther(
-        arg.relayerBalance.Missing_BTT_Donau_Testnet_Balance,
-      );
-
-      const newMissingAmount = already_missing_amount + arg.totalFee;
-
-      await update.RelayerBalance.missingBalanceForBtt_Donau_testnet(
-        newMissingAmount,
-        arg.relayerBalance.id,
-      );
-      break;
-    }
-
-    default:
-      break;
-  }
+  await updateRelayerBalanceTooLow(
+    arg.chainId,
+    arg.paymentIntentId,
+    newMissingBalance,
+    arg.relayerBalance.id,
+    arg.paymentIntent,
+  );
 }
 
-export async function updatePayeeRelayerBalanceSwitchNetwork(
-  arg: {
-    queryBuilder: QueryBuilder;
-    network: ChainIds;
-    payee_user_id: string;
-    newRelayerBalance: string;
-    allGasUsed: string;
-    paymentIntentRow: PaymentIntentRow;
-    relayerBalance_id: number;
-    submittedTransaction: string;
-    commitment: string;
-    newAccountBalance: string;
-    paymentAmount: string;
-  },
-) {
-  const {
-    queryBuilder,
-    network,
-    payee_user_id,
-    newRelayerBalance,
-    allGasUsed,
-    paymentIntentRow,
-    relayerBalance_id,
-    submittedTransaction,
-    commitment,
-    newAccountBalance,
-  } = arg;
-
-  const update = queryBuilder.update();
-  const insert = queryBuilder.insert();
-
-  switch (network) {
-    // FOR BTT DONAU TESTNET!
+function calculateNewMissingBalance(
+  chainId: ChainIds,
+  totalFee: bigint,
+  relayerBalance: RelayerBalance,
+): string {
+  switch (chainId) {
     case ChainIds.BTT_TESTNET_ID: {
-      // I update the Relayer balance
-
-      await update.RelayerBalance.Btt_donau_Testnet_balanceByUserId(
-        newRelayerBalance,
-        payee_user_id,
+      const already_missing_amount: bigint = parseEther(
+        relayerBalance.Missing_BTT_Donau_Testnet_Balance,
       );
 
-      // Add the transaction to the relayer history
-      await insert.RelayerHistory.newTx(
-        payee_user_id,
-        paymentIntentRow.id,
-        relayerBalance_id,
-        submittedTransaction,
-        allGasUsed,
-        network,
-        arg.paymentAmount,
-        JSON.parse(paymentIntentRow.currency),
-      );
+      const newMissingAmount = already_missing_amount + totalFee;
 
-      // Update the account balance for both the virtual and the connected wallet!
-      await update.Accounts.balanceByCommitment(
-        newAccountBalance,
-        commitment,
-      );
-
-      const used_for = paymentIntentRow.used_for + 1;
-      const debitTimes = paymentIntentRow.debitTimes;
-      const statusText = used_for - debitTimes === 0
-        ? PaymentIntentStatus.PAID
-        : PaymentIntentStatus.RECURRING;
-
-      const lastPaymentDate = new Date().toUTCString();
-
-      const nextPaymentDate = statusText === PaymentIntentStatus.RECURRING
-        ? calculateDebitIntervalDays(paymentIntentRow.debitInterval)
-        : paymentIntentRow.nextPaymentDate; // if it's paid then there is no need to update this
-
-      await update.PaymentIntents.statusAndDatesAfterSuccess(
-        statusText,
-        lastPaymentDate,
-        nextPaymentDate,
-        used_for,
-        paymentIntentRow.id,
-      );
-      break;
+      return formatEther(newMissingAmount);
     }
+
+    case ChainIds.BTT_MAINNET_ID: {
+      const already_missing_amount: bigint = parseEther(
+        relayerBalance.Missing_BTT_Mainnet_Balance,
+      );
+      const newMissingAmount = already_missing_amount + totalFee;
+      return formatEther(newMissingAmount);
+    }
+
     default:
-      break;
+      return "err";
   }
 }
 
@@ -204,4 +121,48 @@ function calculateDebitIntervalDays(debitInterval: number) {
   const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + debitInterval);
   return currentDate.toUTCString();
+}
+
+export async function updateRelayingSuccess(arg: {
+  network: ChainIds;
+  payee_user_id: string;
+  newRelayerBalance: string;
+  allGasUsed: string;
+  paymentIntentRow: PaymentIntentRow;
+  relayerBalance_id: number;
+  submittedTransaction: string;
+  commitment: string;
+  newAccountBalance: string;
+  paymentAmount: string;
+}) {
+  const used_for = arg.paymentIntentRow.used_for + 1;
+  const debitTimes = arg.paymentIntentRow.debitTimes;
+  const statusText = used_for - debitTimes === 0
+    ? PaymentIntentStatus.PAID
+    : PaymentIntentStatus.RECURRING;
+
+  const lastPaymentDate = new Date().toUTCString();
+
+  const nextPaymentDate = statusText === PaymentIntentStatus.RECURRING
+    ? calculateDebitIntervalDays(arg.paymentIntentRow.debitInterval)
+    : arg.paymentIntentRow.nextPaymentDate; // if it's paid then there is no need to update this
+
+  await onRelayingSuccess({
+    chainId: arg.network,
+    newRelayerBalance: formatEther(arg.newRelayerBalance),
+    payee_user_id: arg.payee_user_id,
+    paymentIntentId: arg.paymentIntentRow.id,
+    relayerBalanceId: arg.relayerBalance_id,
+    submittedTransaction: arg.submittedTransaction,
+    allGasUsed: arg.allGasUsed,
+    paymentAmount: arg.paymentAmount,
+    currency: arg.paymentIntentRow.currency,
+    commitment: arg.commitment,
+    newAccountBalance: arg.newAccountBalance,
+    statusText,
+    lastPaymentDate,
+    nextPaymentDate,
+    used_for,
+    paymentIntent: arg.paymentIntentRow.paymentIntent,
+  });
 }

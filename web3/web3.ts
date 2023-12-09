@@ -55,6 +55,32 @@ export function getWallet(provider: any) {
   const key = getSecretKey();
   return new ethers.Wallet(key, provider);
 }
+/**
+ * A helper function to check what is the relayer's address now
+ */
+export async function getRelayerBalances() {
+  const BTTTestnetProvider = getProvider(ChainIds.BTT_TESTNET_ID);
+  const BTTMainnetProvider = getProvider(ChainIds.BTT_MAINNET_ID);
+  const wallet = getWallet(BTTMainnetProvider);
+  const address = await wallet.getAddress();
+
+  const BTTTestnetBalance = await BTTTestnetProvider.getBalance(address);
+  const BTTMainnetBalance = await BTTMainnetProvider.getBalance(address);
+
+  console.log("Current Relayer Address: ", address);
+
+  console.log(
+    "BTT Donau Testnet BALANCE:  ",
+    ethers.formatEther(BTTTestnetBalance),
+    "BTT",
+  );
+
+  console.log(
+    "BTT MAINNET BALANCE:  ",
+    ethers.formatEther(BTTMainnetBalance),
+    " BTT",
+  );
+}
 
 /** Gets the smart contract using the provider and network id
  *
@@ -412,6 +438,8 @@ export function getRelayerBalanceForChainId(
   switch (chainId) {
     case ChainIds.BTT_TESTNET_ID:
       return relayerBalance.BTT_Donau_Testnet_Balance;
+    case ChainIds.BTT_MAINNET_ID:
+      return relayerBalance.BTT_Mainnet_Balance;
     default:
       return "0";
   }
@@ -433,6 +461,8 @@ export function calculateFeePerChainId(
 ) {
   switch (chainId) {
     case ChainIds.BTT_TESTNET_ID:
+      return feeData.gasPrice * increasedGasLimit;
+    case ChainIds.BTT_MAINNET_ID:
       return feeData.gasPrice * increasedGasLimit;
     default:
       return BigInt(0);
@@ -491,7 +521,7 @@ export async function transactionGasCalculationsForDynamicPayments({
   } catch (err) {
     console.log(err);
     return {
-      allocatedBalanceEnough: false,
+      allocatedGasEnough: false,
       accountBalanceEnough: await checkIfOnChainBalanceIsEnough(
         chainId as ChainIds,
         paymentIntentRow.account_id.commitment,

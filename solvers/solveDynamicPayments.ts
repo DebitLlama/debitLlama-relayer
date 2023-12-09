@@ -1,7 +1,14 @@
-import { updatePayeeRelayerBalanceSwitchNetwork } from "../businessLogic/actions.ts";
-import QueryBuilder from "../db/queryBuilder.ts";
+import { updateRelayingSuccess } from "../businessLogic/actions.ts";
+import {
+  updateDynamicPaymentRequestJobTo,
+  updatePaymentIntentAccountBalanceTooLowForDynamic,
+} from "../businessLogic/fetch.ts";
 import { formatEther } from "../ethers.min.js";
-import { ChainIds, DynamicPaymentRequestJobRow } from "../web3/constants..ts";
+import {
+  ChainIds,
+  DynamicPaymentRequestJobRow,
+  DynamicPaymentRequestJobsStatus,
+} from "../web3/constants..ts";
 import {
   getRelayerBalanceForChainId,
   parseEther,
@@ -9,8 +16,7 @@ import {
   transactionGasCalculationsForDynamicPayments,
 } from "../web3/web3.ts";
 
-export async function handleLockedDynamicPayments(
-  queryBuilder: QueryBuilder,
+export async function solveDynamicPayments(
   paymentRequest: DynamicPaymentRequestJobRow,
 ) {
   console.log("Starting to handle a dynamic payment for a payment intent!");
@@ -19,7 +25,6 @@ export async function handleLockedDynamicPayments(
   const proof = paymentIntentRow.proof;
   const publicSignals = paymentIntentRow.publicSignals;
   const allocatedGas = paymentRequest.allocatedGas;
-  const update = queryBuilder.update();
 
   //Relayer balance was already allocated so I don't need to handle relayer gas here. Phew!
 
@@ -39,23 +44,31 @@ export async function handleLockedDynamicPayments(
     gasCalculations.allocatedGasEnough === false &&
     gasCalculations.errored === false
   ) {
-    await update.DynamicPaymentRequestJobs.unlockById(paymentRequest.id);
+    await updateDynamicPaymentRequestJobTo(
+      DynamicPaymentRequestJobsStatus.CREATED,
+      paymentRequest.id,
+      paymentIntentRow.paymentIntent,
+    );
+
     return;
   }
 
   // If there was an error with estimate gas I reject the transaction!
   if (gasCalculations.errored) {
-    await update.DynamicPaymentRequestJobs.statusToRejectedById(
+    await updateDynamicPaymentRequestJobTo(
+      DynamicPaymentRequestJobsStatus.REJECETED,
       paymentRequest.id,
+      paymentIntentRow.paymentIntent,
     );
+
     // if the account balance is too low I will update the payment intent
     if (gasCalculations.accountBalanceEnough === false) {
       // save the dynamic payment balance to show on the UI for the account owner!
-      await update.PaymentIntents
-        .accountBalanceTooLowForDynamicPaymentByPaymentIntentId(
-          paymentIntentRow.id,
-          paymentRequest.requestedAmount,
-        );
+
+      await updatePaymentIntentAccountBalanceTooLowForDynamic(
+        paymentIntentRow.id,
+        paymentRequest.requestedAmount,
+      );
     }
     return;
   }
@@ -81,7 +94,11 @@ export async function handleLockedDynamicPayments(
 
   if (!tx) {
     // The transaction sending fails for some reason, I return and can  try again later!
-    await update.DynamicPaymentRequestJobs.unlockById(paymentRequest.id);
+    await updateDynamicPaymentRequestJobTo(
+      DynamicPaymentRequestJobsStatus.CREATED,
+      paymentRequest.id,
+      paymentIntentRow.paymentIntent,
+    );
     return;
   }
   //Get the relayer balance from the database
@@ -107,8 +124,7 @@ export async function handleLockedDynamicPayments(
       //and the account balance!
       const newRelayerBalance = parseEther(currentRelayerBalance) + gasRefund;
 
-      await updatePayeeRelayerBalanceSwitchNetwork({
-        queryBuilder,
+      await updateRelayingSuccess({
         network: chainId,
         payee_user_id: paymentIntentRow.payee_user_id,
         newRelayerBalance,
@@ -118,11 +134,13 @@ export async function handleLockedDynamicPayments(
         submittedTransaction: receipt.hash,
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
-        paymentAmount: paymentRequest.requestedAmount,
+        paymentAmount: paymentIntentRow.maxDebitAmount,
       });
-      // Set the dynamic payment request job to completed!
-      await update.DynamicPaymentRequestJobs.statusToCompletedById(
+
+      await updateDynamicPaymentRequestJobTo(
+        DynamicPaymentRequestJobsStatus.COMPLETED,
         paymentRequest.id,
+        paymentIntentRow.paymentIntent,
       );
     } else {
       // The transaction failed, should not occur as estimateGas runs before

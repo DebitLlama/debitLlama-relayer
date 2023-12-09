@@ -1,10 +1,11 @@
 {
   "lock": false,
   "tasks": {
-    "start": "deno run -A main.ts",
-    "createdFixedPayments": "deno run -A manual/processCreatedFixedPayments.ts",
-    "lockRequests": "deno run -A manual/lockDynamicPaymentRequests.ts",
-    "processLockedRequests": "deno run -A manual/processLockedDynamicRequests.ts"
+    "start": "deno run -A --unstable main.ts",
+    "createdFixedPayments": "deno run -A --unstable tests/processCreatedFixedPayments.ts",
+    "lockRequests": "deno run -A --unstable tests/lockDynamicPaymentRequests.ts",
+    "processLockedRequests": "deno run -A --unstable tests/processLockedDynamicRequests.ts",
+    "runActors": "deno run -A scheduler/actors.ts"
   },
   "imports": {
     "$std/": "https://deno.land/std@0.193.0/",

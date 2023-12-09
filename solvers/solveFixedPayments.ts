@@ -12,10 +12,13 @@ import {
   transactionGasCalculationsForFixedPayments,
 } from "../web3/web3.ts";
 import {
-  updatePayeeRelayerBalanceSwitchNetwork,
   updatePaymentIntentRelayingFailed,
+  updateRelayingSuccess,
 } from "../businessLogic/actions.ts";
-import QueryBuilder from "../db/queryBuilder.ts";
+import {
+  getRelayerBalance,
+  updateAccountBalanceTooLow,
+} from "../businessLogic/fetch.ts";
 
 /**
  * Relay the direct debit transaction and save the details in the database!
@@ -24,20 +27,16 @@ import QueryBuilder from "../db/queryBuilder.ts";
  * @returns void
  */
 
-export async function handleCreatedFixedPayments(
-  queryBuilder: QueryBuilder,
+export async function solveFixedPayments(
   paymentIntentRow: PaymentIntentRow,
 ) {
   console.log(
     "Starting to handle a payment intent with created state and fixed pricing",
   );
   const chainId = paymentIntentRow.network as ChainIds;
-  const select = queryBuilder.select();
-  const update = queryBuilder.update();
-  const { data: payeeRelayerBalanceArray } = await select.RelayerBalance
-    .byUserId(
-      paymentIntentRow.payee_user_id,
-    );
+  const { data: payeeRelayerBalanceArray } = await getRelayerBalance(
+    paymentIntentRow.payee_user_id,
+  );
 
   const relayerBalance = payeeRelayerBalanceArray[0] as RelayerBalance;
   const proof = paymentIntentRow.proof;
@@ -50,6 +49,9 @@ export async function handleCreatedFixedPayments(
     relayerBalance,
   });
 
+  console.log(gasCalculations);
+  console.log(formatEther(gasCalculations.totalFee));
+
   //If estimate gas was successful but the relayer don't have enough balance:
   if (
     gasCalculations.relayerBalanceEnough === false &&
@@ -58,13 +60,15 @@ export async function handleCreatedFixedPayments(
     if (
       paymentIntentRow.statusText !== PaymentIntentStatus.BALANCETOOLOWTORELAY
     ) {
+      console.log("update payment intent relaying failed");
+      //TODO: Deprecate the relayer balance and just use the 10% fee instead!
       await updatePaymentIntentRelayingFailed({
         chainId,
-        queryBuilder: queryBuilder,
-        paymentIntent: paymentIntentRow.paymentIntent,
+        paymentIntentId: paymentIntentRow.id,
         relayerBalance,
         totalFee: gasCalculations.totalFee,
-      });
+        paymentIntent: paymentIntentRow.paymentIntent,
+      }).catch(console.error);
     }
   }
 
@@ -74,9 +78,11 @@ export async function handleCreatedFixedPayments(
     gasCalculations.errored === true &&
     gasCalculations.accountBalanceEnough === false
   ) {
-    await update.PaymentIntents.accountBalanceTooLowByPaymentIntentId(
+    console.log("updateAccountBalanceTooLow");
+    await updateAccountBalanceTooLow(
       paymentIntentRow.id,
-    );
+      paymentIntentRow.paymentIntent,
+    ).catch(console.error);
   }
 
   if (
@@ -85,6 +91,9 @@ export async function handleCreatedFixedPayments(
   ) {
     // if something went wrong return now
     // Relayer balance is not enough or the estimateGas threw an error I abort the mission
+    console.log(
+      "Relayer balance is not enough or the estimateGas threw an error I abort the mission",
+    );
     return;
   }
 
@@ -104,6 +113,7 @@ export async function handleCreatedFixedPayments(
     gasCalculations.gasPrice,
     paymentIntentRow.account_id.accountType,
   ).catch((err) => {
+    console.error(err);
     return false;
   });
 
@@ -127,23 +137,23 @@ export async function handleCreatedFixedPayments(
       // update the database with the details of the relayed transaction
       const newRelayerBalance: any = parseEther(currentRelayerBalance) - fee;
 
-      await updatePayeeRelayerBalanceSwitchNetwork({
-        queryBuilder,
+      await updateRelayingSuccess({
         network: chainId,
         payee_user_id: paymentIntentRow.payee_user_id,
         newRelayerBalance,
         allGasUsed: formatEther(fee),
-        paymentIntentRow: paymentIntentRow,
+        paymentIntentRow,
         relayerBalance_id: relayerBalance.id,
         submittedTransaction: receipt.hash,
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),
         paymentAmount: paymentIntentRow.maxDebitAmount,
-      });
+      }).catch(console.error);
+
       return;
     } else {
       //TODO: Tx failed, SHould not occur as estiamteGas runs before,
       //I don't change the database so nothing happens
     }
-  });
+  }).catch(console.error);
 }
