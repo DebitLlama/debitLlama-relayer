@@ -20,22 +20,14 @@ kv.listenQueue(async (msg: any) => {
   switch (msg.type as KvMessageType) {
     case KvMessageType.created_fixed:
       await solveFixedPayments(paymentIntentRow as PaymentIntentRow)
-        .finally(() => {
-          deleteLock(paymentIntentRow as PaymentIntentRow, msg.type);
-        });
       break;
     case KvMessageType.recurring_fixed:
       await solveFixedPayments(paymentIntentRow as PaymentIntentRow)
-        .finally(() => {
-          deleteLock(paymentIntentRow as PaymentIntentRow, msg.type);
-        });
       break;
     case KvMessageType.dynamic_payment:
       await solveDynamicPayments(
         paymentIntentRow as DynamicPaymentRequestJobRow,
-      ).finally(() => {
-        deleteLock(paymentIntentRow as DynamicPaymentRequestJobRow, msg.type);
-      });
+      )
       break;
     default:
       console.error("Unknown message received:", msg);
@@ -174,34 +166,33 @@ export async function lockPiForProcessing(
   const pi_lock = await kv.get(lockkey);
 
   if (pi_lock.value === null) {
-    // There is no lock,] yet so I can create a default one and enqueue the job
+    // There is no lock, yet so I can create a default one and enqueue the job
     await kv.atomic()
       .check(pi_lock)
-      .set(lockkey, true)
+      .set(lockkey, new Date().toUTCString())
       .enqueue({
         type,
         value: paymentIntentRow,
       })
       .commit();
-  }
-  //If there is a lock already the paymentIntent is already queued.
-}
-
-// delete created fixed payment intents from the db
-export async function deleteLock(
-  pi: PaymentIntentRow | DynamicPaymentRequestJobRow,
-  type: KvMessageType,
-) {
-  let pi_row;
-  if (isPaymentIntentRow(pi)) {
-    pi_row = pi.paymentIntent;
   } else {
-    pi_row = pi.paymentIntent_id.paymentIntent;
+    //If there is a lock already the paymentIntent was already queued once.
+    //The lock times out after 30 minutes to allow resending the same payment intent again
+    const lockDate = Date.parse(pi_lock.value as string);
+    const lockDatePlus30Min = AddMinutesToDate(new Date(lockDate), 30);
+    // Lets check if the date it was locked was 30 minutes ago, if yes enqueue again.
+    if (lockDatePlus30Min < new Date()) {
+      await kv.atomic()
+        .check(pi_lock)
+        .set(lockkey, new Date().toUTCString())
+        .enqueue({
+          type,
+          value: paymentIntentRow,
+        })
+        .commit();
+    }
   }
-
-  const lockkey = lockKeyFromKvMessageType(type, pi_row);
-
-  await kv.atomic()
-    .delete(lockkey)
-    .commit();
+}
+export function AddMinutesToDate(date: Date, minutes: number) {
+  return new Date(date.getTime() + minutes * 60000);
 }
