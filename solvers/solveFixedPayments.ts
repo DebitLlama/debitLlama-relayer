@@ -22,8 +22,6 @@ import {
 
 /**
  * Relay the direct debit transaction and save the details in the database!
- * @param queryBuilder
- * @paymentIntentRow
  * @returns void
  */
 
