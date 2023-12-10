@@ -1,48 +1,17 @@
 # DebitLlama Relayer
 
-This runs on a VPS, ideally hosted locally so the private keys are never exposed to the internet directly!
-On a Debian Virtual Machine!
-
-## Virtual Machine setup after install:
-
-`sudo apt update`
-
-`sudo apt upgrade`
-
-`adduser debitllama`
-
-`usermod -aG sudo debitllama`
-
-## Need to install Deno and Node for PM2
-
-install node
-
-`curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -`
-
-`sudo apt-get install -y nodejs`
-
-intall pm2
-
-`npm install -g pm2`
-
-configure systemd for pm2
-
-`pm2 startup systemd`
-
-install deno
-
-`curl -fsSL https://deno.land/x/install/install.sh | sh`
+A Scalable Meta-transaction relayer with intent solving.
+Deployed on Deno Deploy
 
 
-## Clone the repository from github
-nuff said, make sure to use the debitllama user
+### ENV
 
-## Run the server
-`chmod a+x run.sh`
+These variablres need to be filled out to use this relayer.
 
-`./run.sh`
+`RELAYER_PRIVATEKEY=The private key to relay txs`
 
-RELAYER_PRIVATEKEY=
-ENVIRONMENT=development
-XRELAYER=
-URL=
+`ENVIRONMENT=development or production`
+
+`XRELAYER=The authentication token for the API`
+
+`URL=The url of the API to fetch from`
