@@ -177,7 +177,7 @@ export async function lockPiForProcessing(
       .commit();
   } else {
     //If there is a lock already the paymentIntent was already queued once.
-    //The lock times out after 30 minutes to allow resending the same payment intent again
+    //The lock times-out after 30 minutes to allow resending the same payment intent again
     const lockDate = Date.parse(pi_lock.value as string);
     const lockDatePlus30Min = AddMinutesToDate(new Date(lockDate), 30);
     // Lets check if the date it was locked was 30 minutes ago, if yes enqueue again.
@@ -190,7 +190,7 @@ export async function lockPiForProcessing(
           value: paymentIntentRow,
         })
         .commit();
-    }
+    } // else locked
   }
 }
 export function AddMinutesToDate(date: Date, minutes: number) {
