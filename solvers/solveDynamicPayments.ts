@@ -10,7 +10,6 @@ import {
   DynamicPaymentRequestJobsStatus,
 } from "../web3/constants..ts";
 import {
-  getRelayerBalanceForChainId,
   parseEther,
   relayPayment,
   transactionGasCalculationsForDynamicPayments,
@@ -24,7 +23,6 @@ export async function solveDynamicPayments(
   const chainId = paymentIntentRow.network as ChainIds;
   const proof = paymentIntentRow.proof;
   const publicSignals = paymentIntentRow.publicSignals;
-  const allocatedGas = paymentRequest.allocatedGas;
 
   //Relayer balance was already allocated so I don't need to handle relayer gas here. Phew!
 
@@ -34,24 +32,8 @@ export async function solveDynamicPayments(
     publicSignals,
     paymentIntentRow,
     chainId,
-    allocatedGas,
     dynamicPaymentAmount: paymentRequest.requestedAmount,
   });
-
-  // If the allocatedGas doesn't cover it anymore,
-  // I unlock the dynamic payment request and return, I will try again later when the gas prices change
-  if (
-    gasCalculations.allocatedGasEnough === false &&
-    gasCalculations.errored === false
-  ) {
-    await updateDynamicPaymentRequestJobTo(
-      DynamicPaymentRequestJobsStatus.CREATED,
-      paymentRequest.id,
-      paymentIntentRow.paymentIntent,
-    );
-
-    return;
-  }
 
   // If there was an error with estimate gas I reject the transaction!
   if (gasCalculations.errored) {
@@ -101,11 +83,6 @@ export async function solveDynamicPayments(
     );
     return;
   }
-  //Get the relayer balance from the database
-  const currentRelayerBalance = getRelayerBalanceForChainId(
-    chainId,
-    paymentIntentRow.relayerBalance_id,
-  );
 
   await tx.wait().then(async (receipt: any) => {
     if (receipt.status === 1) {
@@ -114,23 +91,14 @@ export async function solveDynamicPayments(
         parseEther(paymentIntentRow.account_id.balance) -
         parseEther(paymentRequest.requestedAmount);
 
-      // I need to use the fee to refund the relayer balance of the excess allocated amount!
-      const gasRefund = parseEther(allocatedGas) - fee;
-
-      if (gasRefund < 0) {
-        // Then I used more gas than allocated, this should not occur!
-      }
       //Update the relayer!
       //and the account balance!
-      const newRelayerBalance = parseEther(currentRelayerBalance) + gasRefund;
 
       await updateRelayingSuccess({
         network: chainId,
         payee_user_id: paymentIntentRow.payee_user_id,
-        newRelayerBalance,
         allGasUsed: formatEther(fee),
         paymentIntentRow,
-        relayerBalance_id: paymentIntentRow.relayerBalance_id.id,
         submittedTransaction: receipt.hash,
         commitment: paymentIntentRow.commitment,
         newAccountBalance: formatEther(newAccountBalance),

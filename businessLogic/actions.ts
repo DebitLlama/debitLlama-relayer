@@ -2,17 +2,13 @@ import {
   ChainIds,
   PaymentIntentRow,
   PaymentIntentStatus,
-  RelayerBalance,
 } from "../web3/constants..ts";
-import { parseEther } from "../web3/web3.ts";
 import {
   getDynamicPayment,
   getFixed,
   lockDynamicPaymentRequests,
   onRelayingSuccess,
-  updateRelayerBalanceTooLow,
 } from "./fetch.ts";
-import { formatEther } from "../ethers.min.js";
 import {
   setCreatedFixed,
   setDynamicPayment,
@@ -21,10 +17,9 @@ import {
 
 export async function processCreatedFixedPayments() {
   const results = await getFixed("CREATED");
-  
+
   const { data: jobs } = await results.json();
 
-  
   console.log("GOT JOBS", jobs.length);
   if (jobs === null || jobs.length === 0) {
     return;
@@ -66,57 +61,6 @@ export async function processLockedDynamicRequests() {
   await setDynamicPayment(selectedJobs);
 }
 
-export async function updatePaymentIntentRelayingFailed(arg: {
-  chainId: ChainIds;
-  paymentIntentId: number;
-  relayerBalance: RelayerBalance;
-  totalFee: bigint;
-  paymentIntent: string;
-}) {
-  const newMissingBalance = calculateNewMissingBalance(
-    arg.chainId,
-    arg.totalFee,
-    arg.relayerBalance,
-  );
-
-  await updateRelayerBalanceTooLow(
-    arg.chainId,
-    arg.paymentIntentId,
-    newMissingBalance,
-    arg.relayerBalance.id,
-    arg.paymentIntent,
-  );
-}
-
-function calculateNewMissingBalance(
-  chainId: ChainIds,
-  totalFee: bigint,
-  relayerBalance: RelayerBalance,
-): string {
-  switch (chainId) {
-    case ChainIds.BTT_TESTNET_ID: {
-      const already_missing_amount: bigint = parseEther(
-        relayerBalance.Missing_BTT_Donau_Testnet_Balance,
-      );
-
-      const newMissingAmount = already_missing_amount + totalFee;
-
-      return formatEther(newMissingAmount);
-    }
-
-    case ChainIds.BTT_MAINNET_ID: {
-      const already_missing_amount: bigint = parseEther(
-        relayerBalance.Missing_BTT_Mainnet_Balance,
-      );
-      const newMissingAmount = already_missing_amount + totalFee;
-      return formatEther(newMissingAmount);
-    }
-
-    default:
-      return "err";
-  }
-}
-
 function calculateDebitIntervalDays(debitInterval: number) {
   const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + debitInterval);
@@ -126,10 +70,8 @@ function calculateDebitIntervalDays(debitInterval: number) {
 export async function updateRelayingSuccess(arg: {
   network: ChainIds;
   payee_user_id: string;
-  newRelayerBalance: string;
   allGasUsed: string;
   paymentIntentRow: PaymentIntentRow;
-  relayerBalance_id: number;
   submittedTransaction: string;
   commitment: string;
   newAccountBalance: string;
@@ -149,10 +91,8 @@ export async function updateRelayingSuccess(arg: {
 
   await onRelayingSuccess({
     chainId: arg.network,
-    newRelayerBalance: formatEther(arg.newRelayerBalance),
     payee_user_id: arg.payee_user_id,
     paymentIntentId: arg.paymentIntentRow.id,
-    relayerBalanceId: arg.relayerBalance_id,
     submittedTransaction: arg.submittedTransaction,
     allGasUsed: arg.allGasUsed,
     paymentAmount: arg.paymentAmount,

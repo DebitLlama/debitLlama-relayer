@@ -119,8 +119,6 @@ export type DynamicPaymentRequestJobRow = {
   requestedAmount: string;
   status: string;
   request_creator_id: string;
-  allocatedGas: string;
-  relayerBalance_id: number;
 };
 
 export function isPaymentIntentRow(

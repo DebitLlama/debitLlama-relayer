@@ -4,7 +4,6 @@ import { solveDynamicPayments } from "../solvers/solveDynamicPayments.ts";
 import { solveFixedPayments } from "../solvers/solveFixedPayments.ts";
 import {
   DynamicPaymentRequestJobRow,
-  isPaymentIntentRow,
   PaymentIntentRow,
 } from "../web3/constants..ts";
 
@@ -19,15 +18,15 @@ kv.listenQueue(async (msg: any) => {
     | DynamicPaymentRequestJobRow;
   switch (msg.type as KvMessageType) {
     case KvMessageType.created_fixed:
-      await solveFixedPayments(paymentIntentRow as PaymentIntentRow)
+      await solveFixedPayments(paymentIntentRow as PaymentIntentRow);
       break;
     case KvMessageType.recurring_fixed:
-      await solveFixedPayments(paymentIntentRow as PaymentIntentRow)
+      await solveFixedPayments(paymentIntentRow as PaymentIntentRow);
       break;
     case KvMessageType.dynamic_payment:
       await solveDynamicPayments(
         paymentIntentRow as DynamicPaymentRequestJobRow,
-      )
+      );
       break;
     default:
       console.error("Unknown message received:", msg);
