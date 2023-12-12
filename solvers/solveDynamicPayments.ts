@@ -25,7 +25,6 @@ export async function solveDynamicPayments(
   const publicSignals = paymentIntentRow.publicSignals;
 
   //Relayer balance was already allocated so I don't need to handle relayer gas here. Phew!
-
   //Estimate Gas for the transaction and check if the Allocated Gas covers it!
   const gasCalculations = await transactionGasCalculationsForDynamicPayments({
     proof,

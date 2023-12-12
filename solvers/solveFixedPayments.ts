@@ -31,7 +31,6 @@ export async function solveFixedPayments(
   });
 
   console.log(gasCalculations);
-  console.log(formatEther(gasCalculations.totalFee));
 
   // if estimate gas failed and the account don't have enough balance
 
