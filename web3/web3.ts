@@ -387,12 +387,10 @@ async function checkIfOnChainBalanceIsEnough(
       return BigInt("0");
     },
   );
-
   const balance = account[3];
 
   const maxDebitAmountWEI = parseEther(maxDebitAmount);
-
-  return balance > maxDebitAmountWEI;
+  return balance >= maxDebitAmountWEI;
 }
 
 /**
