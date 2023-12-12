@@ -117,6 +117,7 @@ export async function setCreatedFixed(
     await lockPiForProcessing(
       KvMessageType.created_fixed,
       paymentIntents[i],
+      paymentIntents[i].paymentIntent,
     );
   }
 }
@@ -128,26 +129,28 @@ export async function setRecurringFixed(paymentIntents: PaymentIntentRow[]) {
     await lockPiForProcessing(
       KvMessageType.recurring_fixed,
       paymentIntents[i],
+      paymentIntents[i].paymentIntent,
     );
   }
 }
 
-export async function setDynamicPayment(paymentIntents: PaymentIntentRow[]) {
-  for (let i = 0; i < paymentIntents.length; i++) {
+export async function setDynamicPayment(
+  paymentRequests: DynamicPaymentRequestJobRow[],
+) {
+  for (let i = 0; i < paymentRequests.length; i++) {
     await lockPiForProcessing(
       KvMessageType.dynamic_payment,
-      paymentIntents[i],
+      paymentRequests[i],
+      paymentRequests[i].paymentIntent_id.paymentIntent,
     );
   }
 }
 
 function lockKeyFromKvMessageType(type: KvMessageType, paymentIntent: string) {
   const kvMessageLock = mapKvMessageToLocks(type);
-
   const buildKey = mapKeysToKvMessageType(
     kvMessageLock,
   ) as CallableFunction;
-
   return buildKey(paymentIntent);
 }
 
@@ -155,15 +158,15 @@ function lockKeyFromKvMessageType(type: KvMessageType, paymentIntent: string) {
 
 export async function lockPiForProcessing(
   type: KvMessageType,
-  paymentIntentRow: PaymentIntentRow,
+  paymentIntentRow: PaymentIntentRow | DynamicPaymentRequestJobRow,
+  paymentIntent: string,
 ) {
   const lockkey = lockKeyFromKvMessageType(
     type,
-    paymentIntentRow.paymentIntent,
+    paymentIntent,
   );
 
   const pi_lock = await kv.get(lockkey);
-
   if (pi_lock.value === null) {
     // There is no lock, yet so I can create a default one and enqueue the job
     await kv.atomic()
