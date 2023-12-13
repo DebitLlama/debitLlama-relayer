@@ -4,7 +4,6 @@ import { solveDynamicPayments } from "../solvers/solveDynamicPayments.ts";
 import { solveFixedPayments } from "../solvers/solveFixedPayments.ts";
 import {
   DynamicPaymentRequestJobRow,
-  isPaymentIntentRow,
   PaymentIntentRow,
 } from "../web3/constants..ts";
 
@@ -19,15 +18,15 @@ kv.listenQueue(async (msg: any) => {
     | DynamicPaymentRequestJobRow;
   switch (msg.type as KvMessageType) {
     case KvMessageType.created_fixed:
-      await solveFixedPayments(paymentIntentRow as PaymentIntentRow)
+      await solveFixedPayments(paymentIntentRow as PaymentIntentRow);
       break;
     case KvMessageType.recurring_fixed:
-      await solveFixedPayments(paymentIntentRow as PaymentIntentRow)
+      await solveFixedPayments(paymentIntentRow as PaymentIntentRow);
       break;
     case KvMessageType.dynamic_payment:
       await solveDynamicPayments(
         paymentIntentRow as DynamicPaymentRequestJobRow,
-      )
+      );
       break;
     default:
       console.error("Unknown message received:", msg);
@@ -118,6 +117,7 @@ export async function setCreatedFixed(
     await lockPiForProcessing(
       KvMessageType.created_fixed,
       paymentIntents[i],
+      paymentIntents[i].paymentIntent,
     );
   }
 }
@@ -129,26 +129,28 @@ export async function setRecurringFixed(paymentIntents: PaymentIntentRow[]) {
     await lockPiForProcessing(
       KvMessageType.recurring_fixed,
       paymentIntents[i],
+      paymentIntents[i].paymentIntent,
     );
   }
 }
 
-export async function setDynamicPayment(paymentIntents: PaymentIntentRow[]) {
-  for (let i = 0; i < paymentIntents.length; i++) {
+export async function setDynamicPayment(
+  paymentRequests: DynamicPaymentRequestJobRow[],
+) {
+  for (let i = 0; i < paymentRequests.length; i++) {
     await lockPiForProcessing(
       KvMessageType.dynamic_payment,
-      paymentIntents[i],
+      paymentRequests[i],
+      paymentRequests[i].paymentIntent_id.paymentIntent,
     );
   }
 }
 
 function lockKeyFromKvMessageType(type: KvMessageType, paymentIntent: string) {
   const kvMessageLock = mapKvMessageToLocks(type);
-
   const buildKey = mapKeysToKvMessageType(
     kvMessageLock,
   ) as CallableFunction;
-
   return buildKey(paymentIntent);
 }
 
@@ -156,15 +158,15 @@ function lockKeyFromKvMessageType(type: KvMessageType, paymentIntent: string) {
 
 export async function lockPiForProcessing(
   type: KvMessageType,
-  paymentIntentRow: PaymentIntentRow,
+  paymentIntentRow: PaymentIntentRow | DynamicPaymentRequestJobRow,
+  paymentIntent: string,
 ) {
   const lockkey = lockKeyFromKvMessageType(
     type,
-    paymentIntentRow.paymentIntent,
+    paymentIntent,
   );
 
   const pi_lock = await kv.get(lockkey);
-
   if (pi_lock.value === null) {
     // There is no lock, yet so I can create a default one and enqueue the job
     await kv.atomic()
@@ -177,7 +179,7 @@ export async function lockPiForProcessing(
       .commit();
   } else {
     //If there is a lock already the paymentIntent was already queued once.
-    //The lock times out after 30 minutes to allow resending the same payment intent again
+    //The lock times-out after 30 minutes to allow resending the same payment intent again
     const lockDate = Date.parse(pi_lock.value as string);
     const lockDatePlus30Min = AddMinutesToDate(new Date(lockDate), 30);
     // Lets check if the date it was locked was 30 minutes ago, if yes enqueue again.
@@ -190,7 +192,7 @@ export async function lockPiForProcessing(
           value: paymentIntentRow,
         })
         .commit();
-    }
+    } // else locked
   }
 }
 export function AddMinutesToDate(date: Date, minutes: number) {

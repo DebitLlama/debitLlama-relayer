@@ -88,10 +88,8 @@ export async function updateRelayerBalanceTooLow(
 
 export interface RelayingSuccessArgs {
   chainId: ChainIds;
-  newRelayerBalance: string;
   payee_user_id: string;
   paymentIntentId: number;
-  relayerBalanceId: number;
   submittedTransaction: string;
   allGasUsed: string;
   paymentAmount: string;
