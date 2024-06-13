@@ -8,8 +8,29 @@ import {
 } from "../web3/constants..ts";
 
 // Create a the kv store
+const kvUrl = Deno.env.get("KVPATH") || undefined;
 
-export const kv = await Deno.openKv();
+function logvkMessage(path: string, db: string) {
+  return `Using ${path} ${db} for queueing transactions`;
+}
+
+if (kvUrl === undefined) {
+  console.log(logvkMessage("local", "sqlite database"));
+}
+
+if (kvUrl === ":memory") {
+  console.log(logvkMessage("in-memory", "sqlite database"));
+} else if (kvUrl) {
+  if (kvUrl.includes("api.deno.com")) {
+    console.log(
+      logvkMessage("path at " + kvUrl, " with Deno Deploy FoundationDB database"),
+    );
+  } else {
+    console.log(logvkMessage(kvUrl, "database"));
+  }
+}
+
+export const kv = await Deno.openKv(kvUrl);
 
 // Listen to the enqueued jobs
 kv.listenQueue(async (msg: any) => {
