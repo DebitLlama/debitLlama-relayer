@@ -4,7 +4,7 @@ import {
   PaymentIntentStatus,
 } from "../web3/constants..ts";
 
-const appURL = Deno.env.get("URL") || "http://localhost:3000";
+const appURL = "https://debitllama.com";
 const xrelayer = Deno.env.get("XRELAYER") || "";
 
 export async function lockDynamicPaymentRequests() {
