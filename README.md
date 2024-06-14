@@ -10,14 +10,15 @@ service.
 
 ## Native binaries:
 You can find the binaries in the github releases.
-Checksums:
+```
 Version 0.1.1
+Checksums:
 1be788b12a5b89b19a922f27e51d8356211bbd72d89201357f605159f6699aab  ./releases/debitLlama_solver-aarch64-linux
 1be788b12a5b89b19a922f27e51d8356211bbd72d89201357f605159f6699aab  ./releases/debitLlama_solver-aarch64-linux
 53be7aee1256f301cae98d5ed6dccbd3a51d1edb58b2f85825d5cd3387632147  ./releases/debitLlama_solver-x86_64-windows.exe
 e9fc758e1df022ecb993d4effac250c0f7a351e339c1e7679ca0b52fe6beb8d6  ./releases/debitLlama_solver-aarch64-darwin
 d574dff0813bf2354daa37dd8a8d39c655a626200bfaa6b757e01370a4be6332  ./releases/debitLlama_solver-x86_64-darwin
-
+```
 ## Deploy from source:
 It uses Deno, which must be installed to run it.
 
