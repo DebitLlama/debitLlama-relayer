@@ -5,13 +5,14 @@
     "processFixedPayments": "deno run -A --unstable-kv tests/processCreatedFixedPayments.ts",
     "lockRequests": "deno run -A --unstable-kv tests/lockDynamicPaymentRequests.ts",
     "processLockedRequests": "deno run -A --unstable-kv tests/processLockedDynamicRequests.ts",
-    "compile-x86_64-linux": "deno compile --target x86_64-unknown-linux-gnu --output ./releases/debitLlama_solver-x86_64-linux -A --unstable-kv --unstable-cron main.ts",
-    "compile-aarch64-linux": "deno compile --target aarch64-unknown-linux-gnu --output ./releases/debitLlama_solver-aarch64-linux -A --unstable-kv --unstable-cron main.ts",
-    "compile-x86_64-windows": "deno compile --target x86_64-pc-windows-msvc --output ./releases/debitLlama_solver-x86_64-windows.exe -A --unstable-kv --unstable-cron main.ts",
-    "compile-x86_64-darwin": "deno compile --target x86_64-apple-darwin --output ./releases/debitLlama_solver-x86_64-darwin -A --unstable-kv --unstable-cron main.ts",
-    "compile-aarch64-darwin": "deno compile --target aarch64-apple-darwin --output ./releases/debitLlama_solver-aarch64-darwin -A --unstable-kv --unstable-cron main.ts",
+    "compile-x86_64-linux": "export ENVIRONMENT=production && deno compile --target x86_64-unknown-linux-gnu --output ./releases/debitLlama_solver-x86_64-linux -A --unstable-kv --unstable-cron main.ts",
+    "compile-aarch64-linux": "export ENVIRONMENT=production && deno compile --target aarch64-unknown-linux-gnu --output ./releases/debitLlama_solver-aarch64-linux -A --unstable-kv --unstable-cron main.ts",
+    "compile-x86_64-windows": "export ENVIRONMENT=production && deno compile --target x86_64-pc-windows-msvc --output ./releases/debitLlama_solver-x86_64-windows.exe -A --unstable-kv --unstable-cron main.ts",
+    "compile-x86_64-darwin": "export ENVIRONMENT=production && deno compile --target x86_64-apple-darwin --output ./releases/debitLlama_solver-x86_64-darwin -A --unstable-kv --unstable-cron main.ts",
+    "compile-aarch64-darwin": "export ENVIRONMENT=production && deno compile --target aarch64-apple-darwin --output ./releases/debitLlama_solver-aarch64-darwin -A --unstable-kv --unstable-cron main.ts",
     "compile": "deno task compile-x86_64-linux && deno task compile-aarch64-linux && deno task compile-x86_64-windows && deno task compile-x86_64-darwin && deno task compile-aarch64-darwin",
-    "checksums": "sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-x86_64-windows.exe && sha256sum ./releases/debitLlama_solver-aarch64-darwin && sha256sum ./releases/debitLlama_solver-x86_64-darwin"
+    "checksums": "sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-x86_64-windows.exe && sha256sum ./releases/debitLlama_solver-aarch64-darwin && sha256sum ./releases/debitLlama_solver-x86_64-darwin",
+    "install-version": "deno install -n version -r -A https://deno.land/x/version/index.ts"
   },
   "imports": {
     "$std/": "https://deno.land/std@0.193.0/",
