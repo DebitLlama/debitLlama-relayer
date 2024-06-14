@@ -1,8 +1,8 @@
-import { updateRelayingSuccess } from "../businessLogic/actions.ts";
+import { updateRelayingSuccess } from "../actions/actions.ts";
 import {
   updateDynamicPaymentRequestJobTo,
   updatePaymentIntentAccountBalanceTooLowForDynamic,
-} from "../businessLogic/fetch.ts";
+} from "../actions/fetch.ts";
 import { formatEther } from "../ethers.min.js";
 import {
   ChainIds,

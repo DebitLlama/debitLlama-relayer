@@ -2,7 +2,7 @@ import "$std/dotenv/load.ts";
 import {
   processCreatedFixedPayments,
   processRecurringFixedPricedSubscriptions,
-} from "../businessLogic/actions.ts";
+} from "../actions/actions.ts";
 
 async function main() {
   console.log("new fixed priced payments processing started");

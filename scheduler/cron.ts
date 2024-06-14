@@ -4,7 +4,7 @@ import {
   processCreatedFixedPayments,
   processLockedDynamicRequests,
   processRecurringFixedPricedSubscriptions,
-} from "../businessLogic/actions.ts";
+} from "../actions/actions.ts";
 
 Deno.cron("Process payments", "*/10 * * * *", async () => {
   console.log('CHECKING FOR INTENTS TO SOLVE')

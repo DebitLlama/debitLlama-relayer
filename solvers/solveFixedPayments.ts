@@ -5,8 +5,8 @@ import {
   relayPayment,
   transactionGasCalculationsForFixedPayments,
 } from "../web3/web3.ts";
-import { updateRelayingSuccess } from "../businessLogic/actions.ts";
-import { updateAccountBalanceTooLow } from "../businessLogic/fetch.ts";
+import { updateRelayingSuccess } from "../actions/actions.ts";
+import { updateAccountBalanceTooLow } from "../actions/fetch.ts";
 
 /**
  * Relay the direct debit transaction and save the details in the database!
