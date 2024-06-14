@@ -11,7 +11,7 @@
     "compile-x86_64-darwin": "deno compile --target x86_64-apple-darwin --output ./releases/debitLlama_solver-x86_64-darwin -A --unstable-kv --unstable-cron main.ts --VERSION $(cat VERSION)",
     "compile-aarch64-darwin": "deno compile --target aarch64-apple-darwin --output ./releases/debitLlama_solver-aarch64-darwin -A --unstable-kv --unstable-cron main.ts --VERSION $(cat VERSION)",
     "compile": "deno task compile-x86_64-linux && deno task compile-aarch64-linux && deno task compile-x86_64-windows && deno task compile-x86_64-darwin && deno task compile-aarch64-darwin",
-    "checksums": "sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-x86_64-windows.exe && sha256sum ./releases/debitLlama_solver-aarch64-darwin && sha256sum ./releases/debitLlama_solver-x86_64-darwin",
+    "checksums": "echo $(cat VERSION) && sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-aarch64-linux && sha256sum ./releases/debitLlama_solver-x86_64-windows.exe && sha256sum ./releases/debitLlama_solver-aarch64-darwin && sha256sum ./releases/debitLlama_solver-x86_64-darwin",
     "install-version": "deno install -n version -r -A https://deno.land/x/version/index.ts",
     "vget": "version get",
     "vpatch": "version patch",
