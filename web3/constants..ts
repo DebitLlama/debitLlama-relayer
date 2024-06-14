@@ -1,3 +1,5 @@
+export const AvailableNetworks=["BitTorrent Testnet", "BitTorrent Mainnet"]
+
 export enum ChainIds {
   BTT_TESTNET_ID = "0x405",
   BTT_MAINNET_ID = "0xc7",
