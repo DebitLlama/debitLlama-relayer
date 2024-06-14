@@ -14,12 +14,12 @@ import { logError } from "../logger/log.ts";
 const app_name = "DebitLlama Intent Solver";
 const app_description =
   "Process payment intents into blockchain transactions to debit accounts for subscription payments. Runs every 10 minutes.";
-const app_version = Deno.env.get("VERSION") ?? "";
 import { getRelayerBalances } from "../web3/web3.ts";
 
 type ARGS = {
   help: boolean;
   dotenv: boolean;
+  VERSION: string;
 };
 
 const args: ARGS = parseArgs(Deno.args);
@@ -75,7 +75,7 @@ function printHelpScreen() {
     bold(green(app_name)),
   );
   console.log(app_description);
-  console.log(bold(red(app_version)));
+  console.log(bold(red(args.VERSION)));
   console.log(bold("Available networks:"), cyan("BitTorrent Mainnet"));
 
   console.log("Flags:");
